@@ -3,21 +3,27 @@
 #[derive(PartialEq,Eq, Debug)]
 pub enum Stone {
     Empty,
-    P1,
-    P2,
+    White,
+    Black,
 }
 
+impl Default for Stone {
+    fn default() -> Stone {Stone::Empty}
+}
 #[derive(Clone, Copy, Debug)]
 pub struct Point {
     pub x: u32,
     pub y: u32,
 }
 
+#[derive(Debug)]
 pub struct BoardMarker {
     pub point: Point,
-    pub marker: Stone,
+    pub color: Stone,
 }
-
+impl Default for BoardMarker {
+    fn default() -> BoardMarker {BoardMarker {point: Point::new(0,0), color: Stone::Empty}}
+}
 
 impl Point {
     pub fn new(x:u32, y:u32) -> Point {
@@ -34,35 +40,44 @@ impl Point {
     }
 }
 
+#[derive(Debug)]
 pub struct Board {
-    rows: u32,
-    cols: u32,
-    last_move: Option<Point>,
-    board: Vec<BoardMarker>,
+    pub boardsize: u32,
+    pub last_move: Option<Point>,
+    pub board: Vec<BoardMarker>,
 }
 
 
 impl Board {
-    pub fn new(rows: u32, cols: u32) -> Board {
-        assert_eq!(rows, cols); // TODO: FIXME, update Point::*_1d to work on generic boards.
-        let board: Vec<BoardMarker> = (0..rows * cols).map(|idx| { BoardMarker { point: Point::from_1d(idx, rows), marker: Stone::Empty }}).collect();
+    pub fn new(boardsize: u32) -> Board {
+        let board: Vec<BoardMarker> = (0..boardsize*boardsize).map(|idx| { 
+                BoardMarker { point: Point::from_1d(idx, boardsize), color: Stone::Empty }
+            }).collect();
         Board {
-            rows: rows,
-            cols: cols,
+            boardsize: boardsize,
             last_move: None,
             board: board,
         }
     }
-    
+    pub fn clear(&mut self) {
+        self.board = (0..self.boardsize*self.boardsize).map(|idx| {
+            BoardMarker { point: Point::from_1d(idx, self.boardsize), color: Stone::Empty }
+        }).collect();
+    }
+    // FIXME: Use `Result` instead of Option
     pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
-        self.board.get(pos.to_1d(self.rows) as usize)
+        self.board.get(pos.to_1d(self.boardsize) as usize)
+    }
+    
+    pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
+        self.board.get((x + y*self.boardsize) as usize)
     }
     pub fn get_mut(&mut self, pos: Point) -> Option<&mut BoardMarker> {
-        self.board.get_mut(pos.to_1d(self.rows) as usize)
+        self.board.get_mut(pos.to_1d(self.boardsize) as usize)
     }
-    
-    pub fn set(&mut self, pos: Point, marker: Stone) {
-        self.board[pos.to_1d(self.rows) as usize].marker = marker;
+    /// Set `pos` as `color`
+    pub fn set(&mut self, pos: Point, color: Stone) {
+        self.board[pos.to_1d(self.boardsize) as usize].color = color;
     }
 }
 
@@ -71,28 +86,24 @@ mod tests {
     use super::*;
     #[test]
     fn check_if_board_works(){
-        let mut board = Board::new(15, 15);
+        let mut board = Board::new(15);
         assert_eq!(board.board.len(), 15*15);
         let p = Point {x:0, y: 0};
-        board.set(p, Stone::P1);
-        assert_eq!(board.get(p).unwrap().marker, Stone::P1);
+        board.set(p, Stone::White);
+        assert_eq!(board.get(p).unwrap().color, Stone::White);
         let p = Point {x:3, y: 2};
-        board.set(p, Stone::P2);
-        assert_eq!(board.get(p).unwrap().marker, Stone::P2);
+        board.set(p, Stone::Black);
+        assert_eq!(board.get(p).unwrap().color, Stone::Black);
     }
-    
+
     #[test]
-    fn check_if_invalid_move(){
-        let mut board = Board::new(15, 15);
-        let p = Point {x:16, y:16};
-        assert!(board.get(p).is_none());
-    }
-    
-    #[test]
-    fn check_if_illegal_move(){
-        let positions: Vec<Point> = (7*15 + 7,7*15 +6,6*15 +6, 5*15 +7).
-        .iter().map(|d| Point::from_1d(d, 15)).collect();
-        let illegal: Point = Point::from_1d(7*15 + 5, 15);
-        println!("{:?}", illegal);
+    fn clear_board() {
+        let mut board = Board::new(15);
+        let p = Point {x:7, y:7};
+        board.set(p, Stone::White);
+        println!("Board: {:?}", board);
+        board.clear();
+        println!("Board(Cleared): {:?}\nPos: {:?}", board, board.get(p));
+        assert_eq!(board.get(p).unwrap().color, Stone::Empty); 
     }
 }
