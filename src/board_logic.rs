@@ -1,5 +1,9 @@
 #![allow(dead_code)]
 
+use std::fmt;
+use std::ops::Deref;
+use std::iter::FromIterator;
+
 #[derive(PartialEq,Eq, Debug)]
 pub enum Stone {
     Empty,
@@ -10,19 +14,42 @@ pub enum Stone {
 impl Default for Stone {
     fn default() -> Stone {Stone::Empty}
 }
+
+impl fmt::Display for Stone {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match *self {
+            Stone::Empty => ".",
+            Stone::White => "O",
+            Stone::Black => "X",
+        })
+    }
+}
 #[derive(Clone, Copy, Debug)]
 pub struct Point {
     pub x: u32,
     pub y: u32,
 }
 
-#[derive(Debug)]
+
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
 }
-impl Default for BoardMarker {
-    fn default() -> BoardMarker {BoardMarker {point: Point::new(0,0), color: Stone::Empty}}
+
+impl fmt::Debug for BoardMarker {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
+        write!(f, "|[{:>2},{:>2}]{:?}|", self.point.x, self.point.y, self.color)
+    }
+}
+
+impl fmt::Display for BoardMarker {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self.color {
+            Stone::Empty => ".",
+            Stone::White => "O",
+            Stone::Black => "X",
+        })
+    }
 }
 
 impl Point {
@@ -41,16 +68,58 @@ impl Point {
 }
 
 #[derive(Debug)]
+pub struct VecBoard<'a>(&'a mut Vec<BoardMarker>);
+
+impl VecBoard {
+    fn new() -> VecBoard {
+        VecBoard(Vec::new())
+    }
+
+    fn add(&mut self, elem: BoardMarker) {
+        self.0.push(elem);
+    }
+}
+
+impl Deref for VecBoard {
+    type Target = Vec<BoardMarker>;
+
+    fn deref(&self) -> &Vec<BoardMarker> {
+        &self.0
+    }
+}
+
+#[derive(Debug)]
 pub struct Board {
     pub boardsize: u32,
     pub last_move: Option<Point>,
-    pub board: Vec<BoardMarker>,
+    pub board: VecBoard,
 }
 
+impl fmt::Display for VecBoard {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Not sure if needed - let vec: Vec<BoardMarker> = *self;
+        let mut dy: u32 = 0;
+        let width: u32 = self.last().clone().unwrap().point.y;
+        for marker in self.iter() {
+            if marker.point.y == dy {
+                if marker.point.x != width {
+                    write!(f, "{} ", marker);
+                } else {
+                    write!(f, "{}", marker);
+                }
+            } else {
+                dy += 1;
+                writeln!(f, "{}  ", marker);
+            }
+        }
+        write!(f, "")
+    }
+    
+}
 
 impl Board {
     pub fn new(boardsize: u32) -> Board {
-        let board: Vec<BoardMarker> = (0..boardsize*boardsize).map(|idx| { 
+        let board: VecBoard = (0..boardsize*boardsize).map(|idx| { 
                 BoardMarker { point: Point::from_1d(idx, boardsize), color: Stone::Empty }
             }).collect();
         Board {
@@ -81,6 +150,17 @@ impl Board {
     }
 }
 
+impl FromIterator<BoardMarker> for VecBoard {
+    fn from_iter<I: IntoIterator<Item=BoardMarker>>(iterator: I) -> Self {
+        let mut c = VecBoard::new();
+
+        for i in iterator {
+            c.add(i);
+        }
+        c
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,6 +174,8 @@ mod tests {
         let p = Point {x:3, y: 2};
         board.set(p, Stone::Black);
         assert_eq!(board.get(p).unwrap().color, Stone::Black);
+        println!("{:?}", board.board);
+        println!("{}", board.board);
     }
 
     #[test]
