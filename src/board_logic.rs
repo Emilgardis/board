@@ -68,7 +68,7 @@ impl Point {
 }
 
 #[derive(Debug)]
-pub struct VecBoard<'a>(&'a mut Vec<BoardMarker>);
+pub struct VecBoard(Vec<BoardMarker>);
 
 impl VecBoard {
     fn new() -> VecBoard {
