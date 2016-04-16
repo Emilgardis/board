@@ -72,6 +72,7 @@ impl Point {
 }
 
 
+#[derive(Debug)]
 pub struct BoardArr(Vec<BoardMarker>);
 
 impl BoardArr {
@@ -99,7 +100,7 @@ impl DerefMut for BoardArr {
 }
 
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct Board {
     pub boardsize: u32,
     pub last_move: Option<Point>,
