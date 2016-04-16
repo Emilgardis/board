@@ -4,7 +4,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::iter::FromIterator;
 
-#[derive(PartialEq,Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Stone {
     Empty,
     White,
@@ -12,16 +12,19 @@ pub enum Stone {
 }
 
 impl Default for Stone {
-    fn default() -> Stone {Stone::Empty}
+    fn default() -> Stone {
+        Stone::Empty
+    }
 }
 
 impl fmt::Display for Stone {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match *self {
-            Stone::Empty => ".",
-            Stone::White => "O",
-            Stone::Black => "X",
-        })
+        write!(f, "{}",
+               match *self {
+                   Stone::Empty => ".",
+                   Stone::White => "O",
+                   Stone::Black => "X",
+               })
     }
 }
 #[derive(Clone, Copy, Debug)]
@@ -30,31 +33,32 @@ pub struct Point {
     pub y: u32,
 }
 
-
+#[derive(Copy, Clone)]
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
 }
 
 impl fmt::Debug for BoardMarker {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "|[{:>2},{:>2}]{:?}|", self.point.x, self.point.y, self.color)
     }
 }
 
 impl fmt::Display for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", match self.color {
-            Stone::Empty => ".",
-            Stone::White => "O",
-            Stone::Black => "X",
-        })
+        write!(f, "{}",
+               match self.color {
+                   Stone::Empty => ".",
+                   Stone::White => "O",
+                   Stone::Black => "X",
+               })
     }
 }
 
 impl Point {
-    pub fn new(x:u32, y:u32) -> Point {
-        Point { x: x, y:y, }
+    pub fn new(x: u32, y: u32) -> Point {
+        Point { x: x, y: y }
     }
     pub fn from_1d(idx: u32, width: u32) -> Point {
         Point {
@@ -67,12 +71,12 @@ impl Point {
     }
 }
 
-#[derive(Debug)]
-pub struct VecBoard(Vec<BoardMarker>);
 
-impl VecBoard {
-    fn new() -> VecBoard {
-        VecBoard(Vec::new())
+pub struct BoardArr(Vec<BoardMarker>);
+
+impl BoardArr {
+    fn new() -> BoardArr {
+        BoardArr(Vec::new())
     }
 
     fn add(&mut self, elem: BoardMarker) {
@@ -80,7 +84,7 @@ impl VecBoard {
     }
 }
 
-impl Deref for VecBoard {
+impl Deref for BoardArr {
     type Target = Vec<BoardMarker>;
 
     fn deref(&self) -> &Vec<BoardMarker> {
@@ -88,24 +92,25 @@ impl Deref for VecBoard {
     }
 }
 
-impl DerefMut for VecBoard {
+impl DerefMut for BoardArr {
     fn deref_mut<'a>(&'a mut self) -> &'a mut Vec<BoardMarker> {
         &mut self.0
     }
 }
 
-#[derive(Debug)]
+
+#[derive(Debug, Copy, Clone)]
 pub struct Board {
     pub boardsize: u32,
     pub last_move: Option<Point>,
-    pub board: VecBoard,
+    pub board: BoardArr,
 }
 
-impl fmt::Display for VecBoard {
+impl fmt::Display for BoardArr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Not sure if needed - let vec: Vec<BoardMarker> = *self;
         let mut dy: u32 = 0;
-        let width: u32 = self.last().clone().unwrap().point.y +1;
+        let width: u32 = self.last().clone().unwrap().point.y + 1;
         for marker in self.iter() {
             if marker.point.y == dy {
                 if marker.point.x != width {
@@ -120,14 +125,16 @@ impl fmt::Display for VecBoard {
         }
         write!(f, "")
     }
-    
 }
 
 impl Board {
     pub fn new(boardsize: u32) -> Board {
-        let board: VecBoard = (0..boardsize*boardsize).map(|idx| { 
-                BoardMarker { point: Point::from_1d(idx, boardsize), color: Stone::Empty }
-            }).collect();
+        let board: BoardArr = (0..boardsize * boardsize)
+            .map(|idx|
+                    BoardMarker { point: Point::from_1d(idx, boardsize),
+                                color: Stone::Empty } 
+            ).collect();
+
         Board {
             boardsize: boardsize,
             last_move: None,
@@ -135,17 +142,21 @@ impl Board {
         }
     }
     pub fn clear(&mut self) {
-        self.board = (0..self.boardsize*self.boardsize).map(|idx| {
-            BoardMarker { point: Point::from_1d(idx, self.boardsize), color: Stone::Empty }
-        }).collect();
+        self.board = (0..self.boardsize * self.boardsize)
+            .map(|idx|
+                {
+                     BoardMarker { point: Point::from_1d(idx, self.boardsize),  color: Stone::Empty,
+                             }
+                         })
+                         .collect();
     }
     // FIXME: Use `Result` instead of Option
     pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
         self.board.get(pos.to_1d(self.boardsize) as usize)
     }
-    
+
     pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
-        self.board.get((x + y*self.boardsize) as usize)
+        self.board.get((x + y * self.boardsize) as usize)
     }
     pub fn get_mut(&mut self, pos: Point) -> Option<&mut BoardMarker> {
         self.board.get_mut(pos.to_1d(self.boardsize) as usize)
@@ -156,9 +167,9 @@ impl Board {
     }
 }
 
-impl FromIterator<BoardMarker> for VecBoard {
-    fn from_iter<I: IntoIterator<Item=BoardMarker>>(iterator: I) -> Self {
-        let mut c = VecBoard::new();
+impl FromIterator<BoardMarker> for BoardArr {
+    fn from_iter<I: IntoIterator<Item = BoardMarker>>(iterator: I) -> Self {
+        let mut c = BoardArr::new();
 
         for i in iterator {
             c.add(i);
@@ -171,13 +182,13 @@ impl FromIterator<BoardMarker> for VecBoard {
 mod tests {
     use super::*;
     #[test]
-    fn check_if_board_works(){
+    fn check_if_board_works() {
         let mut board = Board::new(15);
-        assert_eq!(board.board.len(), 15*15);
-        let p = Point {x:0, y: 0};
+        assert_eq!(board.board.len(), 15 * 15);
+        let p = Point { x: 0, y: 0 };
         board.set(p, Stone::White);
         assert_eq!(board.get(p).unwrap().color, Stone::White);
-        let p = Point {x:3, y: 2};
+        let p = Point { x: 3, y: 2 };
         board.set(p, Stone::Black);
         assert_eq!(board.get(p).unwrap().color, Stone::Black);
         // println!("{:?}", board);
@@ -187,11 +198,11 @@ mod tests {
     #[test]
     fn clear_board() {
         let mut board = Board::new(15);
-        let p = Point {x:7, y:7};
+        let p = Point { x: 7, y: 7 };
         board.set(p, Stone::White);
         println!("test:clear_board:Board:\n{}", board.board);
         board.clear();
         println!("test:clear_board:Board(Cleared):\n{}", board.board);
-        assert_eq!(board.get(p).unwrap().color, Stone::Empty); 
+        assert_eq!(board.get(p).unwrap().color, Stone::Empty);
     }
 }
