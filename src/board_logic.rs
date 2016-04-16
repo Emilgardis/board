@@ -115,13 +115,13 @@ impl fmt::Display for BoardArr {
         for marker in self.iter() {
             if marker.point.y == dy {
                 if marker.point.x != width {
-                    write!(f, "{} ", marker);
+                    write!(f, "{} ", marker)?;
                 } else {
-                    write!(f, "{}", marker);
+                    write!(f, "{}", marker)?;
                 }
             } else {
                 dy += 1;
-                write!(f, "\n{} ", marker);
+                write!(f, "\n{} ", marker)?;
             }
         }
         write!(f, "")
