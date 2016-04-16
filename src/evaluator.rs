@@ -18,7 +18,7 @@ pub enum EvalError {
 
 pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalError> {
     // OK this will be hard, let's do it.
-
+    debug!("In is_five, checking {:?}", marker);
     let mut n_line = 1;
     { // Horizontal
         debug!("Horiz right:");
@@ -26,6 +26,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
         'right: for i in marker.point.x+1..board.boardsize {
             match board.getxy(i, marker.point.y).ok_or(0) {
                 Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
                         n_line += 1;
                     } else {
@@ -33,7 +34,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                         break 'right;
                     }
                 },
-                Err(err) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(EvalError::OutOfBounds)
             }
         }
         debug!("Horiz left:");
@@ -41,19 +42,19 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
         'left: for i in (0..marker.point.x).rev() {
             match board.getxy(i, marker.point.y).ok_or(0) {
                 Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
                         n_line += 1;
                     } else {
-                        debug!("\tEnd: {}", i);
                         break 'left;
                     }
                 },
-                Err(err) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(EvalError::OutOfBounds)
             }
         }
 
+        debug!("Horizontal Line length: {}", n_line);
         if n_line >= 4 {
-            debug!("Horizontal Line length: {}", n_line);
             return Ok(Direction::Horizontal);
         }
         n_line=0;
@@ -64,29 +65,29 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
         'down: for i in marker.point.y+1..board.boardsize {
             match board.getxy(marker.point.x, i).ok_or(0) {
                 Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
                         n_line += 1;
                     } else {
-                        debug!("\tEnd: {}", i);
                         break 'down;
                     }
                 },
-                Err(err) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(EvalError::OutOfBounds)
             }
         }
         debug!("Vert up: ");
-        debug!("\tStart: {}", marker.point.x-1);
+        debug!("\tStart: {}", marker.point.y.checked_sub(1).unwrap_or(marker.point.y));
         'up: for i in (0..marker.point.y).rev() { // if it is suppossed to be 0..y+1 or 0..y is not clear
             match board.getxy(marker.point.x, i).ok_or(0) {
                 Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
                         n_line += 1;
                     } else {
-                        debug!("\tEnd: {}", i);
                         break 'up;
                     }
                 },
-                Err(err) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(EvalError::OutOfBounds) // Shouldn't happen
             }
         }
 
@@ -99,6 +100,90 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
     { // Diagonal '\'
         debug!("Diagonal down:");
         debug!("\tStart: {}_{}", marker.point.x+1, marker.point.y+1); 
+        'diag_down: for i in 1..board.boardsize+1 {
+            match board.getxy(marker.point.x+i, marker.point.y+i).ok_or(0) {
+                Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        break 'diag_down;
+                    }
+                },
+                Err(_) => {
+                    debug!("\tEnd: {}_{}", marker.point.x+i, marker.point.y+i);
+                    break 'diag_down; 
+                }
+            }
+        }
+        debug!("Diagonal up:");
+        debug!("\tStart: {}_{}", marker.point.x-1, marker.point.y-1); 
+        'diag_up: for i in 1..board.boardsize+1 {
+            match board.getxy(marker.point.x.checked_sub(i).unwrap_or(1024), marker.point.y.checked_sub(i).unwrap_or(1024)).ok_or(0) {
+                Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        break 'diag_up;
+                    }
+                },
+                Err(_) => {
+                    debug!("\tEnd: {}_{}", marker.point.x+i, marker.point.y+i);
+                    break 'diag_up;
+                }
+            }
+        }
+           
+        debug!("Diagonal line length: {}", n_line);
+        if n_line >= 4 {
+            return Ok(Direction::Diagonal);
+        }
+        n_line = 0;
+    }
+    { // AntiDiagonal '/'
+        debug!("Anti-Diagonal down:");
+        debug!("\tStart: {}_{}", marker.point.x+1, marker.point.y+1); 
+        'anti_diag_down: for i in 1..board.boardsize+1 {
+            match board.getxy(marker.point.x.checked_sub(i).unwrap_or(1024), marker.point.y+i).ok_or(0) {
+                Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        debug!("\tEnd: {}_{}", marker.point.x+i, marker.point.y+i);
+                        break 'anti_diag_down;
+                    }
+                },
+                Err(_) => {
+                    debug!("\tEnd: {}_{}", marker.point.x+i, marker.point.y+i);
+                    break 'anti_diag_down; 
+                }
+            }
+        }
+        debug!("Anti-Diagonal up:");
+        debug!("\tStart: {}_{}", marker.point.x+1, marker.point.y.checked_sub(1).unwrap_or(marker.point.y)); 
+        'anti_diag_up: for i in 1..board.boardsize+1 {
+            match board.getxy(marker.point.x + i, marker.point.y.checked_sub(i).unwrap_or(1024)).ok_or(0) {
+                Ok(other_marker) => {
+                    debug!("\t{:?}", other_marker);
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        break 'anti_diag_up;
+                    }
+                },
+                Err(_) => {
+                    break 'anti_diag_up;
+                }
+            }
+        }
+
+        debug!("Anti-Diagonal line length: {}", n_line);
+        if n_line >= 4 {
+            return Ok(Direction::AntiDiagonal);
+        }
+        n_line = 0;
     }
     Err(EvalError::NoMatch)
 }
@@ -163,13 +248,34 @@ mod tests {
     fn is_diagonal_five_in_a_row() {
         let mut board = Board::new(15);
         // A diagonal is '\'
-        for pos in [7*15 + 2u32, 8*15+3u32, 9*15+4u32, 10*15+5u32].iter() {
+        for pos in [2u32 + 7*15, 3u32 + 8*15, 4u32 + 9*15, 5u32 + 10*15].iter() {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
+
+        for pos in [9u32 + 0*15, 10u32 + 1*15, 11u32 + 2*15, 13u32 + 4*15].iter() {
+            board.set_point(Point::from_1d(*pos, 15), Stone::White);
+        }
         let p1 = BoardMarker { point: Point::from_1d(11*15+6, 15), color: Stone::Black };
+        let p2 = BoardMarker { point: Point::from_1d(12+3*15, 15), color: Stone::White };
+
+        println!("\n{}\nChecks; {:?} and {:?}",
+                 board.board, p1, p2);
+
+        assert_eq!(is_five(&board, p1), Ok(Direction::Diagonal));
+        assert_eq!(is_five(&board, p2), Ok(Direction::Diagonal));
+    }
+    #[test]
+    fn is_anti_diagonal_five_in_a_row() {
+        let mut board = Board::new(15);
+        for pos in [6u32+6*15,5u32+7*15, 4u32+8*15, 3u32+9*15].iter() {
+            board.set_point(Point::from_1d(*pos, 15), Stone::Black);
+        }
+
+        let p1 = BoardMarker { point: Point::from_1d(2u32+10*15, 15), color: Stone::Black };
+
         println!("\n{}\nChecks; {:?}",
                  board.board, p1);
 
-        assert_eq!(is_five(&board, p1), Ok(Direction::Diagonal));
+        assert_eq!(is_five(&board, p1), Ok(Direction::AntiDiagonal));
     }
 }
