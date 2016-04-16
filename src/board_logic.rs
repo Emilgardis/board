@@ -105,7 +105,7 @@ impl fmt::Display for VecBoard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Not sure if needed - let vec: Vec<BoardMarker> = *self;
         let mut dy: u32 = 0;
-        let width: u32 = self.last().clone().unwrap().point.y;
+        let width: u32 = self.last().clone().unwrap().point.y +1;
         for marker in self.iter() {
             if marker.point.y == dy {
                 if marker.point.x != width {
@@ -115,7 +115,7 @@ impl fmt::Display for VecBoard {
                 }
             } else {
                 dy += 1;
-                writeln!(f, "{}  ", marker);
+                write!(f, "\n{} ", marker);
             }
         }
         write!(f, "")
@@ -180,8 +180,8 @@ mod tests {
         let p = Point {x:3, y: 2};
         board.set(p, Stone::Black);
         assert_eq!(board.get(p).unwrap().color, Stone::Black);
-        println!("{:?}", board.board);
-        println!("{}", board.board);
+        // println!("{:?}", board);
+        println!("test:check_if_board_works:Board\n{}", board.board);
     }
 
     #[test]
@@ -189,9 +189,9 @@ mod tests {
         let mut board = Board::new(15);
         let p = Point {x:7, y:7};
         board.set(p, Stone::White);
-        println!("Board: {:?}", board);
+        println!("test:clear_board:Board:\n{}", board.board);
         board.clear();
-        println!("Board(Cleared): {:?}\nPos: {:?}", board, board.get(p));
+        println!("test:clear_board:Board(Cleared):\n{}", board.board);
         assert_eq!(board.get(p).unwrap().color, Stone::Empty); 
     }
 }
