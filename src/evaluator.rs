@@ -1,4 +1,4 @@
-use board_logic::{Board, BoardMarker, Point, Stone};
+use board_logic::{Board, BoardMarker};
 
 
 #[derive(Debug, PartialEq)]
@@ -9,7 +9,14 @@ pub enum Direction {
     AntiDiagonal, // ´/´
 }
 
-pub fn is_five(board: &Board, marker: BoardMarker) -> Option<Direction> {
+#[derive(PartialEq, Debug)]
+pub enum EvalError {
+    NoMatch,
+    OutOfBounds,
+}
+
+
+pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalError> {
     // OK this will be hard, let's do it.
 
     let mut n_line = 1;
@@ -27,7 +34,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Option<Direction> {
         debug!("Horiz left:");
         debug!("\tStart: {}", marker.point.x-1);
         'left: for i in (0..marker.point.x).rev() {
-            if board.getxy(i, marker.point.y).unwrap().color == marker.color {
+            if board.getxy(i, marker.point.y+200).unwrap().color == marker.color {
                 n_line += 1;
             } else {
                 debug!("\tEnd: {}", i);
@@ -37,7 +44,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Option<Direction> {
 
         if n_line >= 4 {
             debug!("Horizontal Line length: {}", n_line);
-            return Some(Direction::Horizontal);
+            return Ok(Direction::Horizontal);
         }
         n_line=0;
     }
@@ -65,11 +72,15 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Option<Direction> {
 
         debug!("Vertical line length: {}", n_line);
         if n_line >= 4 {
-            return Some(Direction::Vertical);
+            return Ok(Direction::Vertical);
         }
         n_line = 0;
     }
-    Option::None
+    { // Diagonal '\'
+        debug!("Diagonal down:");
+        debug!("\tStart: {}_{}", marker.point.x+1, marker.point.y+1); 
+    }
+    Err(EvalError::NoMatch)
 }
 
 #[cfg(test)]
@@ -80,8 +91,11 @@ mod tests {
     #[test]
     #[ignore]
     fn check_if_illegal_move() {
-        let positions: Vec<Point> = [7 * 15 + 7, 7 * 15 + 6, 6 * 15 + 6, 5 * 15 + 7]
-                .iter().map(|d| Point::from_1d(*d, 15)).collect();
+        let mut board = Board::new(15);
+        for pos in [7 * 15 + 7, 7 * 15 + 6, 6 * 15 + 6, 5 * 15 + 7].iter() {
+            board.set_point(Point::from_1d(*pos, 15), Stone::Black);
+        }
+
         let illegal = Point::from_1d(7 * 15 + 5, 15);
         println!("{:?}", illegal);
     }
@@ -91,7 +105,7 @@ mod tests {
         let mut board = Board::new(15);
         let y = 7u32;
         let p1 = BoardMarker { point: Point::new(4, y), color: Stone::Black };
-        for x in (0..4) {
+        for x in 0..4 {
             board.set_point(Point::new(x, y), Stone::Black);
         }
 
@@ -99,11 +113,11 @@ mod tests {
         for x in (7..12).filter(|x| *x != 8) {
             board.set_point(Point::new(x, y + 2), Stone::White);
         }
-        println!("test:is_horizontal_five_in_a_row:\n{}\nChecks,{:?} and {:?}",
+        println!("\n{}\nChecks,{:?} and {:?}",
                  board.board, p1, p2);
         
-        assert_eq!(is_five(&board, p1), Some(Direction::Horizontal));
-        assert_eq!(is_five(&board, p2), Some(Direction::Horizontal));
+        assert_eq!(is_five(&board, p1), Ok(Direction::Horizontal));
+        // assert_eq!(is_five(&board, p2).unwrap(), Direction::Horizontal);
     }
 
     #[test]
@@ -111,7 +125,7 @@ mod tests {
         let mut board = Board::new(15);
         let x = 7u32;
         let p1 = BoardMarker { point: Point::new(x, 4), color: Stone::Black };
-        for y in (0..4) {
+        for y in 0..4 {
             board.set_point(Point::new(x, y), Stone::Black);
         }
 
@@ -119,11 +133,23 @@ mod tests {
         for y in (7..12).filter(|y| *y != 8) {
             board.set_point(Point::new(x+2, y), Stone::White);
         }
-        println!("test:is_horizontal_five_in_a_row:\n{}\nChecks,{:?} and {:?}",
+        println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
         
-        assert_eq!(is_five(&board, p1), Some(Direction::Vertical));
-        assert_eq!(is_five(&board, p2), Some(Direction::Vertical));
+        assert_eq!(is_five(&board, p1), Ok(Direction::Vertical));
+        assert_eq!(is_five(&board, p2), Ok(Direction::Vertical));
     }
+    #[test]
+    fn is_diagonal_five_in_a_row() {
+        let mut board = Board::new(15);
+        // A diagonal is '\'
+        for pos in [7*15 + 2u32, 8*15+3u32, 9*15+4u32, 10*15+5u32].iter() {
+            board.set_point(Point::from_1d(*pos, 15), Stone::Black);
+        }
+        let p1 = BoardMarker { point: Point::from_1d(11*15+6, 15), color: Stone::Black };
+        println!("\n{}\nChecks; {:?}",
+                 board.board, p1);
 
+        assert_eq!(is_five(&board, p1), Ok(Direction::Diagonal));
+    }
 }
