@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::fmt;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::iter::FromIterator;
 
 #[derive(PartialEq,Eq, Debug)]
@@ -85,6 +85,12 @@ impl Deref for VecBoard {
 
     fn deref(&self) -> &Vec<BoardMarker> {
         &self.0
+    }
+}
+
+impl DerefMut for VecBoard {
+    fn deref_mut<'a>(&'a mut self) -> &'a mut Vec<BoardMarker> {
+        &mut self.0
     }
 }
 
