@@ -14,48 +14,56 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Option<Direction> {
 
     let mut n_line = 1;
     { // Horizontal
+        debug!("Horiz right:");
+        debug!("\tStart: {}", marker.point.x+1);
         'right: for i in marker.point.x+1..board.boardsize {
             if board.getxy(i, marker.point.y).unwrap().color == marker.color {
                 n_line += 1;
             } else {
+                debug!("\tEnd: {}", i);
                 break 'right;
             }
         }
-
+        debug!("Horiz left:");
+        debug!("\tStart: {}", marker.point.x-1);
         'left: for i in (0..marker.point.x).rev() {
             if board.getxy(i, marker.point.y).unwrap().color == marker.color {
                 n_line += 1;
             } else {
+                debug!("\tEnd: {}", i);
                 break 'left;
             }
         }
 
         if n_line >= 4 {
-            println!("Horizontal Line length: {}", n_line);
+            debug!("Horizontal Line length: {}", n_line);
             return Some(Direction::Horizontal);
         }
         n_line=0;
     }
     { // Vertical
+        debug!("Vert down:");
+        debug!("\tStart: {}", marker.point.y+1);
         'down: for i in marker.point.y+1..board.boardsize {
-            print!("|{}|", i);
             if board.getxy(marker.point.x, i).unwrap().color == marker.color {
                 n_line += 1;
             } else {
+                debug!("\tEnd: {}", i);
                 break 'down;
             }
         }
-
+        debug!("Vert up: ");
+        debug!("\tStart: {}", marker.point.x-1);
         'up: for i in (0..marker.point.y).rev() { // if it is suppossed to be 0..y+1 or 0..y is not clear
-            print!("[{}]", i);
             if board.getxy(marker.point.x, i).unwrap().color == marker.color {
                 n_line += 1;
             } else {
+                debug!("\tEnd: {}", i);
                 break 'up;
             }
         }
 
-        println!("Vertical line length: {}", n_line);
+        debug!("Vertical line length: {}", n_line);
         if n_line >= 4 {
             return Some(Direction::Vertical);
         }
