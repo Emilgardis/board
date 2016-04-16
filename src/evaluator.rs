@@ -24,21 +24,31 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
         debug!("Horiz right:");
         debug!("\tStart: {}", marker.point.x+1);
         'right: for i in marker.point.x+1..board.boardsize {
-            if board.getxy(i, marker.point.y).unwrap().color == marker.color {
-                n_line += 1;
-            } else {
-                debug!("\tEnd: {}", i);
-                break 'right;
+            match board.getxy(i, marker.point.y).ok_or(0) {
+                Ok(other_marker) => {
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        debug!("\tEnd: {}", i);
+                        break 'right;
+                    }
+                },
+                Err(err) => return Err(EvalError::OutOfBounds)
             }
         }
         debug!("Horiz left:");
         debug!("\tStart: {}", marker.point.x-1);
         'left: for i in (0..marker.point.x).rev() {
-            if board.getxy(i, marker.point.y+200).unwrap().color == marker.color {
-                n_line += 1;
-            } else {
-                debug!("\tEnd: {}", i);
-                break 'left;
+            match board.getxy(i, marker.point.y).ok_or(0) {
+                Ok(other_marker) => {
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        debug!("\tEnd: {}", i);
+                        break 'left;
+                    }
+                },
+                Err(err) => return Err(EvalError::OutOfBounds)
             }
         }
 
@@ -52,21 +62,31 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
         debug!("Vert down:");
         debug!("\tStart: {}", marker.point.y+1);
         'down: for i in marker.point.y+1..board.boardsize {
-            if board.getxy(marker.point.x, i).unwrap().color == marker.color {
-                n_line += 1;
-            } else {
-                debug!("\tEnd: {}", i);
-                break 'down;
+            match board.getxy(marker.point.x, i).ok_or(0) {
+                Ok(other_marker) => {
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        debug!("\tEnd: {}", i);
+                        break 'down;
+                    }
+                },
+                Err(err) => return Err(EvalError::OutOfBounds)
             }
         }
         debug!("Vert up: ");
         debug!("\tStart: {}", marker.point.x-1);
         'up: for i in (0..marker.point.y).rev() { // if it is suppossed to be 0..y+1 or 0..y is not clear
-            if board.getxy(marker.point.x, i).unwrap().color == marker.color {
-                n_line += 1;
-            } else {
-                debug!("\tEnd: {}", i);
-                break 'up;
+            match board.getxy(marker.point.x, i).ok_or(0) {
+                Ok(other_marker) => {
+                    if other_marker.color == marker.color {
+                        n_line += 1;
+                    } else {
+                        debug!("\tEnd: {}", i);
+                        break 'up;
+                    }
+                },
+                Err(err) => return Err(EvalError::OutOfBounds)
             }
         }
 
