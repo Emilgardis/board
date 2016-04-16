@@ -197,7 +197,7 @@ mod tests {
         board.set_point(p, Stone::Black);
         assert_eq!(board.get(p).unwrap().color, Stone::Black);
         // println!("{:?}", board);
-        println!("test:check_if_board_works:Board\n{}", board.board);
+        println!("Board\n{}", board.board);
     }
 
     #[test]
@@ -205,9 +205,9 @@ mod tests {
         let mut board = Board::new(15);
         let p = Point { x: 7, y: 7 };
         board.set_point(p, Stone::White);
-        println!("test:clear_board:Board:\n{}", board.board);
+        println!("Board:\n{}", board.board);
         board.clear();
-        println!("test:clear_board:Board(Cleared):\n{}", board.board);
+        println!("Board - Cleared:\n{}", board.board);
         assert_eq!(board.get(p).unwrap().color, Stone::Empty);
     }
 }
