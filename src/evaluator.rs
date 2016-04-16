@@ -9,27 +9,57 @@ pub enum Direction {
     AntiDiagonal, // ´/´
 }
 
-pub fn is_five(board: Board, pos: Point, color: Stone) -> Option<Direction> {
+pub fn is_five(board: &Board, marker: BoardMarker) -> Option<Direction> {
     // OK this will be hard, let's do it.
-    // First, check if horizontal.
-    let mut nLine = 1;
-    for i in pos.x..board.boardsize + 1 {
-        if board.getxy(i, pos.y).unwrap().color == Stone::Empty {
-            nLine += 1;
-        } else {
-            break;
+
+    let mut n_line = 1;
+    { // Horizontal
+        'right: for i in marker.point.x+1..board.boardsize {
+            if board.getxy(i, marker.point.y).unwrap().color == marker.color {
+                n_line += 1;
+            } else {
+                break 'right;
+            }
         }
-    }
-    for i in pos.x - 1..0 {
-        if board.getxy(i, pos.y).unwrap().color == Stone::Empty {
-            nLine += 1;
-        } else {
-            break;
+
+        'left: for i in (0..marker.point.x).rev() {
+            if board.getxy(i, marker.point.y).unwrap().color == marker.color {
+                n_line += 1;
+            } else {
+                break 'left;
+            }
         }
+
+        if n_line >= 4 {
+            println!("Horizontal Line length: {}", n_line);
+            return Some(Direction::Horizontal);
+        }
+        n_line=0;
     }
-    println!("nLine: {}", nLine);
-    if nLine >= 5 {
-        return Some(Direction::Horizontal);
+    { // Vertical
+        'down: for i in marker.point.y+1..board.boardsize {
+            print!("|{}|", i);
+            if board.getxy(marker.point.x, i).unwrap().color == marker.color {
+                n_line += 1;
+            } else {
+                break 'down;
+            }
+        }
+
+        'up: for i in (0..marker.point.y).rev() { // if it is suppossed to be 0..y+1 or 0..y is not clear
+            print!("[{}]", i);
+            if board.getxy(marker.point.x, i).unwrap().color == marker.color {
+                n_line += 1;
+            } else {
+                break 'up;
+            }
+        }
+
+        println!("Vertical line length: {}", n_line);
+        if n_line >= 4 {
+            return Some(Direction::Vertical);
+        }
+        n_line = 0;
     }
     Option::None
 }
@@ -52,21 +82,40 @@ mod tests {
     fn is_horizontal_five_in_a_row() {
         let mut board = Board::new(15);
         let y = 7u32;
-        let p1 = Point::new(4, y);
+        let p1 = BoardMarker { point: Point::new(4, y), color: Stone::Black };
         for x in (0..4) {
-            board.set(Point::new(x, y), Stone::Black);
+            board.set_point(Point::new(x, y), Stone::Black);
         }
-        assert_eq!(is_five(board, p1, Stone::Black), Some(Direction::Horizontal));
 
-        let p2 = Point::new(8, y + 2);
+        let p2 = BoardMarker { point: Point::new(8, y + 2), color: Stone::White };
         for x in (7..12).filter(|x| *x != 8) {
-            board.set(Point::new(x, y + 2), Stone::White);
+            board.set_point(Point::new(x, y + 2), Stone::White);
         }
-        assert_eq!(is_five(board, p2, Stone::White),
-                   Some(Direction::Horizontal));
-        println!("test:is_horizontal_five_in_a_row:\n{}\nChecks,{:?} and {:?} ",
+        println!("test:is_horizontal_five_in_a_row:\n{}\nChecks,{:?} and {:?}",
                  board.board, p1, p2);
+        
+        assert_eq!(is_five(&board, p1), Some(Direction::Horizontal));
+        assert_eq!(is_five(&board, p2), Some(Direction::Horizontal));
+    }
 
+    #[test]
+    fn is_vertical_five_in_a_row() {  
+        let mut board = Board::new(15);
+        let x = 7u32;
+        let p1 = BoardMarker { point: Point::new(x, 4), color: Stone::Black };
+        for y in (0..4) {
+            board.set_point(Point::new(x, y), Stone::Black);
+        }
+
+        let p2 = BoardMarker { point: Point::new(x + 2, 8), color: Stone::White };
+        for y in (7..12).filter(|y| *y != 8) {
+            board.set_point(Point::new(x+2, y), Stone::White);
+        }
+        println!("test:is_horizontal_five_in_a_row:\n{}\nChecks,{:?} and {:?}",
+                 board.board, p1, p2);
+        
+        assert_eq!(is_five(&board, p1), Some(Direction::Vertical));
+        assert_eq!(is_five(&board, p2), Some(Direction::Vertical));
     }
 
 }
