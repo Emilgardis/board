@@ -5,6 +5,7 @@ use std::ops::{Deref, DerefMut};
 use std::iter::FromIterator;
 use std::char;
 
+/// Enum for `Stone`,
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Stone {
     Empty,
@@ -28,12 +29,18 @@ impl fmt::Display for Stone {
                })
     }
 }
+/// A coordinate located at (`x`, `y`)
 #[derive(Clone, Copy, Debug)]
 pub struct Point {
     pub x: u32,
     pub y: u32,
 }
 
+/// Holds info about the marker at `Point`.
+///
+/// # Notes
+/// This will hopefully have more fields in the future, planned for is support for comments on each
+/// marker.
 #[derive(Copy, Clone)]
 pub struct BoardMarker {
     pub point: Point,
@@ -58,21 +65,25 @@ impl fmt::Display for BoardMarker {
 }
 
 impl Point {
+    /// Makes a `Point` at (`x`, `y`)
     pub fn new(x: u32, y: u32) -> Point {
         Point { x: x, y: y }
     }
+
+    /// Converts a 1D coord to a `Point`
     pub fn from_1d(idx: u32, width: u32) -> Point {
         Point {
             x: idx % width,
             y: idx / width,
         }
     }
+    /// Convert back a `Point` to a 1D coord
     pub fn to_1d(self, width: u32) -> u32 {
         self.x + self.y * width
     }
 }
 
-
+/// Holds all `BoardMarker`'s in a `Board`.
 #[derive(Debug)]
 pub struct BoardArr(Vec<BoardMarker>);
 
@@ -102,6 +113,7 @@ impl DerefMut for BoardArr {
 
 
 #[derive(Debug)]
+/// Board type. Holds the data for a game.
 pub struct Board {
     pub boardsize: u32,
     pub last_move: Option<Point>,
@@ -133,6 +145,13 @@ impl fmt::Display for BoardArr {
 }
 
 impl Board {
+    /// Makes a new Board of size `boardsize`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use renju_board::board_logic::Board;
+    /// let mut board = Board::new(15);
+    /// ```
     pub fn new(boardsize: u32) -> Board {
         let board: BoardArr = (0..boardsize * boardsize)
             .map(|idx|
@@ -146,6 +165,7 @@ impl Board {
             board: board,
         }
     }
+    /// Sets all `BoardMarker`'s to `Stone::Empty` 
     pub fn clear(&mut self) {
         self.board = (0..self.boardsize * self.boardsize)
             .map(|idx|
@@ -155,18 +175,19 @@ impl Board {
                          })
                          .collect();
     }
-    // FIXME: Use `Result` instead of Option
+    /// Returns a immutable reference to the `BoardMarker` at `pos`
     pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
         self.board.get(pos.to_1d(self.boardsize) as usize)
     }
-
+    /// Returns a immutable reference to the `BoardMarker` at (`x`,`y`)
     pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
         self.board.get((x + y * self.boardsize) as usize)
     }
+    /// Returns a mutable reference to the `BoardMarker` at `pos`
     pub fn get_mut(&mut self, pos: Point) -> Option<&mut BoardMarker> {
         self.board.get_mut(pos.to_1d(self.boardsize) as usize)
     }
-    
+    /// Sets the `BoardMarker` at `pos` to `color`
     pub fn set_point(&mut self, pos: Point, color: Stone) {
         self.board[pos.to_1d(self.boardsize) as usize].color = color;
     }
