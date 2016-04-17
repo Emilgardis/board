@@ -1,6 +1,10 @@
 use board_logic::{Board, BoardMarker};
 
-
+/// Describes direction for `is_line`, etc.
+///
+/// # Notes
+/// Each field will probably in the future hold two integers, these will signify how many stones
+/// were found around the matched `BoardMarker`.
 #[derive(Debug, PartialEq)]
 pub enum Direction {
     Horizontal,
@@ -9,18 +13,27 @@ pub enum Direction {
     AntiDiagonal, // ´/´
 }
 
+
+/// Evaluation Error. Used by `is_line`, etc.
+///
+/// # Fields
+/// - NoMatch
+///     Used when the function did not find any match.
+/// - OutOfBounds
+///     *DEPRECATED* This should not be used.
 #[derive(PartialEq, Debug)]
-pub enum EvalError {
+pub enum Error {
     NoMatch,
     OutOfBounds,
 }
 
 
-pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalError> {
-    // OK this will be hard, let's do it.
-    debug!("In is_five, checking {:?}", marker);
-    let mut n_line = 1;
+pub fn is_line(board: &Board, marker: BoardMarker) -> Result<Direction, Error> {
+    debug!("In is_line, checking {:?}", marker);
+
     { // Horizontal
+        let mut n_horiz_right = 0;
+        let mut n_horiz_left = 0;
         debug!("Horiz right:");
         debug!("\tStart: {}", marker.point.x+1);
         'right: for i in marker.point.x+1..board.boardsize {
@@ -28,38 +41,39 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_horiz_right += 1;
                     } else {
                         debug!("\tEnd: {}", i);
                         break 'right;
                     }
                 },
-                Err(_) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(Error::OutOfBounds)
             }
         }
         debug!("Horiz left:");
-        debug!("\tStart: {}", marker.point.x-1);
+        debug!("\tStart: {}", marker.point.x.checked_sub(1).unwrap_or(marker.point.x));
         'left: for i in (0..marker.point.x).rev() {
             match board.getxy(i, marker.point.y).ok_or(0) {
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_horiz_left += 1;
                     } else {
                         break 'left;
                     }
                 },
-                Err(_) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(Error::OutOfBounds)
             }
         }
 
-        debug!("Horizontal Line length: {}", n_line);
-        if n_line >= 4 {
+        debug!("Horizontal Line length: {}", n_horiz_right + n_horiz_left);
+        if n_horiz_right + n_horiz_left >= 4 {
             return Ok(Direction::Horizontal);
         }
-        n_line=0;
     }
     { // Vertical
+        let mut n_vert_down = 0;
+        let mut n_vert_up = 0;
         debug!("Vert down:");
         debug!("\tStart: {}", marker.point.y+1);
         'down: for i in marker.point.y+1..board.boardsize {
@@ -67,12 +81,12 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_vert_down += 1;
                     } else {
                         break 'down;
                     }
                 },
-                Err(_) => return Err(EvalError::OutOfBounds)
+                Err(_) => return Err(Error::OutOfBounds)
             }
         }
         debug!("Vert up: ");
@@ -82,22 +96,23 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_vert_up += 1;
                     } else {
                         break 'up;
                     }
                 },
-                Err(_) => return Err(EvalError::OutOfBounds) // Shouldn't happen
+                Err(_) => return Err(Error::OutOfBounds) // Shouldn't happen
             }
         }
 
-        debug!("Vertical line length: {}", n_line);
-        if n_line >= 4 {
+        debug!("Vertical line length: {}", n_vert_down + n_vert_up);
+        if n_vert_down + n_vert_up >= 4 {
             return Ok(Direction::Vertical);
         }
-        n_line = 0;
     }
     { // Diagonal '\'
+        let mut n_diag_down = 0;
+        let mut n_diag_up = 0;
         debug!("Diagonal down:");
         debug!("\tStart: {}_{}", marker.point.x+1, marker.point.y+1); 
         'diag_down: for i in 1..board.boardsize+1 {
@@ -105,7 +120,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_diag_down += 1;
                     } else {
                         break 'diag_down;
                     }
@@ -123,7 +138,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_diag_up += 1;
                     } else {
                         break 'diag_up;
                     }
@@ -135,13 +150,14 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
             }
         }
            
-        debug!("Diagonal line length: {}", n_line);
-        if n_line >= 4 {
+        debug!("Diagonal line length: {}", n_diag_down + n_diag_up);
+        if n_diag_down + n_diag_up >= 4 {
             return Ok(Direction::Diagonal);
         }
-        n_line = 0;
     }
     { // AntiDiagonal '/'
+        let mut n_anti_diag_down = 0;
+        let mut n_anti_diag_up = 0;
         debug!("Anti-Diagonal down:");
         debug!("\tStart: {}_{}", marker.point.x+1, marker.point.y+1); 
         'anti_diag_down: for i in 1..board.boardsize+1 {
@@ -149,7 +165,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_anti_diag_down += 1;
                     } else {
                         debug!("\tEnd: {}_{}", marker.point.x+i, marker.point.y+i);
                         break 'anti_diag_down;
@@ -168,7 +184,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
                 Ok(other_marker) => {
                     debug!("\t{:?}", other_marker);
                     if other_marker.color == marker.color {
-                        n_line += 1;
+                        n_anti_diag_up += 1;
                     } else {
                         break 'anti_diag_up;
                     }
@@ -179,14 +195,14 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<Direction, EvalErro
             }
         }
 
-        debug!("Anti-Diagonal line length: {}", n_line);
-        if n_line >= 4 {
+        debug!("Anti-Diagonal line length: {}", n_anti_diag_down + n_anti_diag_up);
+        if n_anti_diag_down + n_anti_diag_up >= 4 {
             return Ok(Direction::AntiDiagonal);
         }
-        n_line = 0;
     }
-    Err(EvalError::NoMatch)
+    Err(Error::NoMatch)
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -221,8 +237,8 @@ mod tests {
         println!("\n{}\nChecks,{:?} and {:?}",
                  board.board, p1, p2);
         
-        assert_eq!(is_five(&board, p1), Ok(Direction::Horizontal));
-        // assert_eq!(is_five(&board, p2).unwrap(), Direction::Horizontal);
+        assert_eq!(is_line(&board, p1), Ok(Direction::Horizontal));
+        // assert_eq!(is_line(&board, p2).unwrap(), Direction::Horizontal);
     }
 
     #[test]
@@ -241,8 +257,8 @@ mod tests {
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
         
-        assert_eq!(is_five(&board, p1), Ok(Direction::Vertical));
-        assert_eq!(is_five(&board, p2), Ok(Direction::Vertical));
+        assert_eq!(is_line(&board, p1), Ok(Direction::Vertical));
+        assert_eq!(is_line(&board, p2), Ok(Direction::Vertical));
     }
     #[test]
     fn is_diagonal_five_in_a_row() {
@@ -261,8 +277,8 @@ mod tests {
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
 
-        assert_eq!(is_five(&board, p1), Ok(Direction::Diagonal));
-        assert_eq!(is_five(&board, p2), Ok(Direction::Diagonal));
+        assert_eq!(is_line(&board, p1), Ok(Direction::Diagonal));
+        assert_eq!(is_line(&board, p2), Ok(Direction::Diagonal));
     }
     #[test]
     fn is_anti_diagonal_five_in_a_row() {
@@ -276,6 +292,6 @@ mod tests {
         println!("\n{}\nChecks; {:?}",
                  board.board, p1);
 
-        assert_eq!(is_five(&board, p1), Ok(Direction::AntiDiagonal));
+        assert_eq!(is_line(&board, p1), Ok(Direction::AntiDiagonal));
     }
 }
