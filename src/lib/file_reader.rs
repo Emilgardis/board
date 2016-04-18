@@ -43,11 +43,11 @@ pub enum FileType{
     ///
     /// ## Known:
     /// * Libraries seem to be saved with the signature 0x40 ("@") some where at the end.
-    /// Positions seems to be stored as two bytes. With 0x78 being the middle.
+    /// Positions seems to be stored as two bytes. This means that 0x78 is the middle.
     /// With what I know so far, after 10 "0xFF", the first move is stored. Then if the next byte is "0x00",
     /// continue and repeat. How sub-games are stored will soon be cracked.
     ///     
-    ///     This is the layout:
+    ///     This is the layout for X, Y:
     ///     
     ///          0: . . . . . . . . . . . . . . .  
     ///          1: . . . . . . . . . . . . . . . 
@@ -68,7 +68,31 @@ pub enum FileType{
     ///
     /// The _O_ is on `0x44`, the _X_ is on `0x78` (the middle)
     /// 
-    /// *    Libraries usually have "@" at the end, this
+    /// * The header consists of 20 bytes:
+    ///         0xFF,  'R',  'e',  'n',  'L',  'i',  'b', 0xFF,
+    ///         MAJOR_VERSION, MINOR_VERSION, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+    ///         0xFF, 0xFF, 0xFF, 0xFF
+    ///
+    /// This can be shown with the command `xxd -g 1 -c8 <.lib file>`
+    ///
+    /// Note that the minor version doesn't really work, it hasn't been updated in code. Oh well.
+    ///     
+    /// * FIXME! 
+    /// These are set in RenLib/MoveNode.cpp
+    ///
+    ///         const DOWN        = 0x000080;
+    ///         const RIGHT       = 0x000040;
+    ///         const OLD_COMMENT = 0x000020;
+    ///         const MARK        = 0x000010;
+    ///         const COMMENT     = 0x000008;
+    ///         const START       = 0x000004;
+    ///         const NO_MOVE     = 0x000002;
+    ///         const EXTENSION   = 0x000001;
+    ///         const MASK        = 0xFFFF3F;
+    ///
+    ///
+    ///
+    /// *    See RenLib/RenLibDoc.cpp for implementation.
     Lib,
 }
 
@@ -100,6 +124,21 @@ pub fn open_file_as_board(path: &Path) -> Option<Board> {
             return Some(board);
         },
         Some(FileType::Lib) => {
+            let file: Vec<u8> = file.bytes().map(|x| x.unwrap()).collect();
+            let header: Vec<u8> = file.drain(0..21).collect();
+            let Game = unimplemented!();
+            let major_file_version = header[8] as u32;
+            let minor_file_version = header[9] as u32;
+            
+            let command_iter = file.into_iter().peekable();
+
+            // Here we will want to do everything that is needed.
+            // First value is "always" the starting position.
+            //
+            while command_iter.peek().is_some() {
+                unimplemented!();   
+            }
+            
             unimplemented!();
         },
         _ => unimplemented!(),
