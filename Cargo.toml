@@ -5,6 +5,19 @@ authors = ["Emil Gardström <emil.gardstrom@gmail.com>"]
 description = "A WIP game board for renju designed in rust!"
 readme = "README.md"
 license = "MIT"
+publish = false
+
+[lib]
+name = "renju"
+path = "src/lib/lib.rs"
+
+[[bin]]
+name = "renju-board"
+path = "src/bin/main.rs"
+
+[profile.release] # Make sure to turn this off later
+debug = true
 
 [dependencies]
 log = "*"
+
