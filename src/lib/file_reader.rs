@@ -75,7 +75,11 @@ pub enum FileType{
     ///
     /// This can be shown with the command `xxd -g 1 -c8 <.lib file>`
     ///
-    /// Note that the minor version doesn't really work, it hasn't been updated in code. Oh well.
+    /// Note that the minor version doesn't reflect the software version, it stands for the
+    /// files "protocol" version, i.e it is updated only on a breaking change.
+    /// `RenLib v37` has major 3, minor 0. (It has support for 3.4 but files seem to never get
+    /// stored as such.)
+    ///
     ///     
     /// * FIXME! 
     /// These are set in RenLib/MoveNode.cpp
@@ -124,13 +128,13 @@ pub fn open_file_as_board(path: &Path) -> Option<Board> {
             return Some(board);
         },
         Some(FileType::Lib) => {
-            let file: Vec<u8> = file.bytes().map(|x| x.unwrap()).collect();
+            let mut file: Vec<u8> = file.bytes().map(|x| x.unwrap()).collect();
             let header: Vec<u8> = file.drain(0..21).collect();
             let Game = unimplemented!();
             let major_file_version = header[8] as u32;
             let minor_file_version = header[9] as u32;
             
-            let command_iter = file.into_iter().peekable();
+            let mut command_iter = file.into_iter().peekable();
 
             // Here we will want to do everything that is needed.
             // First value is "always" the starting position.

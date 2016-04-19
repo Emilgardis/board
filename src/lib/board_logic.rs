@@ -45,6 +45,8 @@ pub struct Point {
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
+    pub one_line_comment: String,
+    pub multi_line_comment: String,
 }
 
 impl fmt::Debug for BoardMarker {
