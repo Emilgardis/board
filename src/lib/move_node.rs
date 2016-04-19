@@ -13,12 +13,12 @@ pub trait Node {
 }
 
 pub struct RootNode {
-    children: Result<Vec<Box<MoveNode>>, NodeError>,
+    pub children: Result<Vec<Box<MoveNode>>, NodeError>,
 }
 pub struct MoveNode {
-    parent: Option<Box<MoveNode>>,
-    children: Option<Vec<Box<MoveNode>>>,
-    marker: BoardMarker,
+    pub parent: Option<Box<MoveNode>>,
+    pub children: Option<Vec<Box<MoveNode>>>,
+    pub marker: BoardMarker,
+    pub one_line_comment: &'static str,
+    pub multi_line_comment: &'static str,
 }
-
-

@@ -46,7 +46,7 @@ pub enum FileType{
     /// Positions seems to be stored as two bytes. This means that 0x78 is the middle.
     /// With what I know so far, after 10 "0xFF", the first move is stored. Then if the next byte is "0x00",
     /// continue and repeat. How sub-games are stored will soon be cracked.
-    ///     
+    ///
     ///     This is the layout for X, Y:
     ///     
     ///          0: . . . . . . . . . . . . . . .  

@@ -4,7 +4,9 @@
 /// sample I7.lib file that is included in RenLib
 ///
 
-extern crate  renju_board;
-use renju_board as renju;
-
-// unimplemented!();
+extern crate renju;
+use renju::*;
+fn main(){
+    unimplemented!();
+    
+}
