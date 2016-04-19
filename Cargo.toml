@@ -20,4 +20,3 @@ debug = true
 
 [dependencies]
 log = "*"
-
