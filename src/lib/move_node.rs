@@ -75,7 +75,7 @@ fn check_if_node_kinda_works() {
     println!("Is root: {}", root.is_root());
     let child1: Ref<Rc<Node>> = root.add_child(BoardMarker { point: Point { x: 0, y: 0}, color: Stone::Black}, root.clone()).unwrap();
     // let child1: Ref<Rc<Node>> =  root.get_nth(0).unwrap();
-    println!("{:?}", child1);
+    assert_eq!(format!("{:?}", child1), format!("{:?}", root.get_nth(0).unwrap()));
     {let mut child1mark: RefMut<Option<BoardMarker>> = child1.mark.borrow_mut();
     *child1mark = Some(BoardMarker { point: Point { x: 14, y: 14}, color: Stone::Black});}
     println!("{:?}", root.get_nth(0));
