@@ -108,20 +108,20 @@ impl fmt::Debug for MoveGraph {
 fn does_it_work() {
     use board_logic::*;
     let mut graph = MoveGraph::new();
-    let a = graph.new_root(BoardMarker::new(Point::new(7,7), Stone::Black, None));
-    let b_1 = BoardMarker::new(Point::new(8,7), Stone::White, None);
+    let a = graph.new_root(BoardMarker::new(Point::new(7,7), Stone::Black));
+    let b_1 = BoardMarker::new(Point::new(8,7), Stone::White);
     let a_1 = graph.add_move(a, b_1);
-    let b_2 = BoardMarker::new(Point::new(9,7), Stone::Black, None);
+    let b_2 = BoardMarker::new(Point::new(9,7), Stone::Black);
     let a_2 = graph.add_move(a, b_2);
-    let b_1_1 = BoardMarker::new(Point::new(10,7), Stone::White, None);
+    let b_1_1 = BoardMarker::new(Point::new(10,7), Stone::White);
     let a_1_1 = graph.add_move(a_1, b_1_1);
-    let b_1_2 = BoardMarker::new(Point::new(11,7), Stone::Black, None);
+    let b_1_2 = BoardMarker::new(Point::new(11,7), Stone::Black);
     let a_1_2 = graph.add_move(a_1, b_1_2);
-    let b_1_2_1 = BoardMarker::new(Point::new(12,7), Stone::White, None);
+    let b_1_2_1 = BoardMarker::new(Point::new(12,7), Stone::White);
     let a_1_2_1 = graph.add_move(a_1_2, b_1_2_1);
-    let b_1_2_1_1 = BoardMarker::new(Point::new(8, 4), Stone::Black, None);
+    let b_1_2_1_1 = BoardMarker::new(Point::new(8, 4), Stone::Black);
     let a_1_2_1_1 = graph.add_move(a_1_2_1, b_1_2_1_1);
-    let b_1_2_1_2 = BoardMarker::new(Point::new(7,4), Stone::Black, None);
+    let b_1_2_1_2 = BoardMarker::new(Point::new(7,4), Stone::Black);
     let a_1_2_1_2 = graph.add_move(a_1_2_1, b_1_2_1_2);
     
     // for i in 

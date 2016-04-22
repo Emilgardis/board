@@ -225,12 +225,12 @@ mod tests {
     fn is_horizontal_five_in_a_row() {
         let mut board = Board::new(15);
         let y = 7u32;
-        let p1 = BoardMarker { point: Point::new(4, y), color: Stone::Black, comment: None };
+        let p1 = BoardMarker::new(Point::new(4, y), Stone::Black);
         for x in 0..4 {
             board.set_point(Point::new(x, y), Stone::Black);
         }
 
-        let p2 = BoardMarker { point: Point::new(8, y + 2), color: Stone::White, comment: None };
+        let p2 = BoardMarker::new(Point::new(8, y + 2), Stone::White);
         for x in (7..12).filter(|x| *x != 8) {
             board.set_point(Point::new(x, y + 2), Stone::White);
         }
@@ -245,12 +245,12 @@ mod tests {
     fn is_vertical_five_in_a_row() {  
         let mut board = Board::new(15);
         let x = 7u32;
-        let p1 = BoardMarker { point: Point::new(x, 4), color: Stone::Black, comment: None};
+        let p1 = BoardMarker::new(Point::new(x, 4), Stone::Black);
         for y in 0..4 {
             board.set_point(Point::new(x, y), Stone::Black);
         }
 
-        let p2 = BoardMarker { point: Point::new(x + 2, 8), color: Stone::White, comment: None };
+        let p2 = BoardMarker::new(Point::new(x + 2, 8), Stone::White);
         for y in (7..12).filter(|y| *y != 8) {
             board.set_point(Point::new(x+2, y), Stone::White);
         }
@@ -271,8 +271,8 @@ mod tests {
         for pos in [9u32 + 0*15, 10u32 + 1*15, 11u32 + 2*15, 13u32 + 4*15].iter() {
             board.set_point(Point::from_1d(*pos, 15), Stone::White);
         }
-        let p1 = BoardMarker { point: Point::from_1d(11*15+6, 15), color: Stone::Black, comment: None };
-        let p2 = BoardMarker { point: Point::from_1d(12+3*15, 15), color: Stone::White, comment: None };
+        let p1 = BoardMarker::new(Point::from_1d(11*15+6, 15), Stone::Black);
+        let p2 = BoardMarker::new(Point::from_1d(12+3*15, 15), Stone::White);
 
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
@@ -287,7 +287,7 @@ mod tests {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
 
-        let p1 = BoardMarker { point: Point::from_1d(2u32+10*15, 15), color: Stone::Black, comment: None };
+        let p1 = BoardMarker::new(Point::from_1d(2u32+10*15, 15), Stone::Black);
 
         println!("\n{}\nChecks; {:?}",
                  board.board, p1);

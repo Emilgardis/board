@@ -46,11 +46,12 @@ pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
     pub comment: Option<&'static str>,
+    pub board_text: Option<&'static str>, // Should find a better way to do this, maybe Vec<(Point, &'static str)>,
 }
 
 impl BoardMarker {
-    pub fn new(point: Point, color: Stone, comment: Option<&'static str>) -> BoardMarker {
-        BoardMarker { point: point, color: color, comment: comment}
+    pub fn new(point: Point, color: Stone) -> BoardMarker {
+        BoardMarker { point: point, color: color, comment: None, board_text: None}
     }
 }
 
@@ -162,7 +163,7 @@ impl Board {
     pub fn new(boardsize: u32) -> Board {
         let board: BoardArr = (0..boardsize * boardsize)
             .map(|idx|
-                    BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty, None) 
+                    BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty) 
             ).collect();
 
         Board {
@@ -175,7 +176,7 @@ impl Board {
     pub fn clear(&mut self) {
         self.board = (0..self.boardsize * self.boardsize)
             .map(|idx| 
-                    BoardMarker::new(Point::from_1d(idx, self.boardsize), Stone::Empty, None)
+                    BoardMarker::new(Point::from_1d(idx, self.boardsize), Stone::Empty)
                  ).collect();
     }
     /// Returns a immutable reference to the `BoardMarker` at `pos`
