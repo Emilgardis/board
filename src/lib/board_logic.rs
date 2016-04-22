@@ -45,6 +45,13 @@ pub struct Point {
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
+    pub comment: Option<&'static str>,
+}
+
+impl BoardMarker {
+    pub fn new(point: Point, color: Stone, comment: Option<&'static str>) -> BoardMarker {
+        BoardMarker { point: point, color: color, comment: comment}
+    }
 }
 
 impl fmt::Debug for BoardMarker {
@@ -155,8 +162,7 @@ impl Board {
     pub fn new(boardsize: u32) -> Board {
         let board: BoardArr = (0..boardsize * boardsize)
             .map(|idx|
-                    BoardMarker { point: Point::from_1d(idx, boardsize),
-                                color: Stone::Empty } 
+                    BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty, None) 
             ).collect();
 
         Board {
@@ -168,12 +174,9 @@ impl Board {
     /// Sets all `BoardMarker`'s to `Stone::Empty` 
     pub fn clear(&mut self) {
         self.board = (0..self.boardsize * self.boardsize)
-            .map(|idx|
-                {
-                     BoardMarker { point: Point::from_1d(idx, self.boardsize),  color: Stone::Empty,
-                             }
-                         })
-                         .collect();
+            .map(|idx| 
+                    BoardMarker::new(Point::from_1d(idx, self.boardsize), Stone::Empty, None)
+                 ).collect();
     }
     /// Returns a immutable reference to the `BoardMarker` at `pos`
     pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
