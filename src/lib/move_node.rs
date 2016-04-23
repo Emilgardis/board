@@ -75,25 +75,55 @@ impl MoveGraph {
     }
 
     pub fn get_parent(&self, child: MoveIndex) -> Option<MoveIndex> {
-        let mut peek_parent = self.graph.parents(child.node_index).peekable();
-        let result = peek_parent.next(&self.graph);
-        if peek_parent.peek(&self.graph) != None {
-            panic!("Error, shame on me!") //FIXME: This error message sucks.
+        let mut parent = self.graph.parents(child.node_index);
+        let result = parent.next(&self.graph);
+        if parent.next(&self.graph) != None {
+            panic!("Error, shame on me! A MoveNode cannot have two parents!") //FIXME: This error message sucks.
         } else {
             MoveIndex::from_option(result)
         }
     }
+
+    pub fn get_siblings(&self, child: MoveIndex) -> Vec<MoveIndex> {
+        let mut parent_opt = self.get_parent(child);
+        match parent_opt {
+            Some(parent) => return self.get_children(parent), // Not ideal, should not really return the original child.
+            None => return Vec::new(),
+        }
+    }
     // Convenience methods, like set comment, set pos etc. Also walk down node until multiple
     // choices. etc.
-    pub fn down_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Option<Vec<MoveIndex>>) {
-        let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
+    
+    /// Move down in the tree until there is a branch, i.e multiple choices for the next move.
+    ///
+    /// Returns the children that were walked  and the children that caused the branch, if any.
+    pub fn down_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) { 
+        // Check if we should wrap the result in an option.
+        let mut branch_decendants: Vec<MoveIndex> = Vec::new();
         let mut children = self.get_children(node);
         while children.len() == 1 {
-            println!("{:?}", children);
-            branch_ancestors.push(children[0].clone());
+            branch_decendants.push(children[0].clone()); // Do we need to clone? FIXME
             children = self.get_children(children[0]);
         }
-        (branch_ancestors, if children.len() == 0 {None} else {Some(children)})
+        (branch_decendants, children)
+    }
+    /// Move up in tree until there is a branch, i.e move has multiple siblings.
+    ///
+    /// Returns the nodes that were walked (last entry is the branching node) and the children to
+    /// the branching node.
+    pub fn up_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
+        let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
+        let mut parent: Option<MoveIndex> = self.get_parent(node);
+
+        // Ehm... FIXME: Not sure if this is right. We want to go up to branch, even if it is close.
+        let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
+        while parent.is_some() && siblings.len() == 1 { // If it is a lonechild len of siblings will be 1.
+            let parentunw: MoveIndex = parent.unwrap(); // Safe as parent must be some for this code to run.
+            branch_ancestors.push(parentunw); // Same as in fn down_to_branch, FIXME
+            parent = self.get_parent(parentunw);
+            siblings = self.get_siblings(parentunw);
+        }
+        (branch_ancestors, siblings)
     }
 }
 
@@ -127,7 +157,8 @@ fn does_it_work() {
     // for i in 
     println!("{:?}", graph);
     println!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
-    let branched = graph.down_to_branch(a_1_2);;
-    println!("Moving down on {:?} gives: end = {:?}, remaining = {:?}", a_1_2, branched.0, branched.1);
-    panic!("Hello!");
+    let branched_down: (Vec<MoveIndex>, Vec<MoveIndex>) = graph.down_to_branch(a_1_2);;
+    println!("Moving down on {:?} gives: end = {:?}, remaining = {:?}", a_1_2, branched_down.0, branched_down.1);
+    // let branched_up = graph.up_to_branch()
+    //NOTE:FIXME:TODO: Add asserts!!
 }

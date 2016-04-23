@@ -1,11 +1,13 @@
 #![feature(io)]
 use std::io;
 use std::io::prelude::*;
-use std::path::{Path, Prefix};
+use std::path::{Path};
 use std::fs::{File};
 use std::error::Error;
 
-use board_logic::{Board, BoardMarker, Stone, Point};
+
+use board_logic::{BoardMarker, Stone, Point};
+use move_node::{MoveGraph, MoveIndex};
 
 /// Describes the file
 pub enum FileType{
@@ -110,31 +112,49 @@ impl FileType{
         }
     }
 }
-pub fn open_file_as_board(path: &Path) -> Option<Board> {
+
+#[derive(Debug)]
+pub enum FileErr {
+    OpenError,
+    ParseError,
+    NotSupported,
+}
+
+pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
     let display = path.display();
     let filetype = FileType::new(path);
-    let mut file = match File::open(&path){
-        // Should probably return a none. Or change from Option to Result
-        Err(why) => panic!("couldn't open {}: {}", display, Error::description(&why)),
+    let mut file: File = match File::open(&path) {
         Ok(file) => file,
+        Err(desc) => return Err(FileErr::OpenError),
     };
 
     match filetype { 
         Some(FileType::Pos) => {
-            let mut board = Board::new(15);
+            let mut sequence: Vec<BoardMarker> = Vec::new();
             for (index, pos) in file.bytes().skip(1).enumerate() { // First value should always be the number of moves.
-                board.set_point(Point::from_1d(pos.ok().unwrap() as u32, 15), if index % 2 == 0 {Stone::Black} else {Stone::White});
+                sequence.push(BoardMarker::new(Point::from_1d(pos.ok().unwrap() as u32, 15), if index % 2 == 0 {Stone::Black} else {Stone::White})); // was pos.ok().unwrap()
             }
-            return Some(board);
+            let mut root = MoveGraph::new();
+            let mut latest: MoveIndex = root.new_root(sequence[0]);
+            for marker_move in sequence.into_iter().skip(1) {
+                latest = root.add_move(latest, marker_move)
+            }
+            return Ok(root);
         },
         Some(FileType::Lib) => {
-            let mut file: Vec<u8> = file.bytes().map(|x| x.unwrap()).collect();
-            let header: Vec<u8> = file.drain(0..21).collect();
+            let mut file_u8: Vec<u8> = Vec::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
+            for byte in file.bytes() {
+                match byte {
+                    Ok(val) => file_u8.push(val),
+                    Err(err) => return Err(FileErr::OpenError),
+                }
+            }
+            let header: Vec<u8> = file_u8.drain(0..21).collect();
             let Game = unimplemented!();
             let major_file_version = header[8] as u32;
             let minor_file_version = header[9] as u32;
             
-            let mut command_iter = file.into_iter().peekable();
+            let mut command_iter = file_u8.into_iter().peekable();
 
             // Here we will want to do everything that is needed.
             // First value is "always" the starting position.
@@ -155,11 +175,15 @@ mod tests {
     use super::*;
     use std::path::Path;
     use board_logic as bl;
+    use move_node as mn;
 
     #[test]
     fn open_pos_file(){
         let file = Path::new("examplefiles/example.pos");
-        let mut board = open_file_as_board(file).unwrap();
-        println!("\n{}", board.board);
+        let mut graph: mn::MoveGraph = match open_file(file) {
+            Ok(gr) => gr,
+            Err(desc) => panic!("{:?}", desc),
+        };
+        println!("\n{:?}", graph);
     }
 }
