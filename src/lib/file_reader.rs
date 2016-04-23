@@ -1,5 +1,6 @@
 #![feature(io)]
 use std::io;
+use std::str;
 use std::io::prelude::*;
 use std::path::{Path};
 use std::fs::{File};
@@ -166,7 +167,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             // If 0x00, then we are adding to branches.
             let mut current_command: u8 = 0x00;
             println!("{:?}", file_u8);
-            let mut command_iter = file_u8.into_iter().peekable();
+            let mut command_iter = file_u8.into_iter().peekable().clone();
             let mut moves: u32 = 1;
             while command_iter.peek().is_some() {
                 let byte: u8 = match command_iter.next(){
@@ -187,6 +188,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                                     Point::new(((byte & 0x0F)-1) as u32, (byte >> 4) as u32),
                                 if moves % 2 == 0 {Stone::Black} else {Stone::White})
                         ));
+                        println!("\tAdded {:?} to children", children.last().unwrap());
                         current_command = command_iter.next().unwrap(); // FIXME: Could be none
                     } else { // We are in as root! HACKER!
                         println!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
@@ -198,27 +200,50 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                                 BoardMarker::new(
                                     Point::new(((byte & 0x0F)-1) as u32, (byte >> 4) as u32),
                                 Stone::Black));
-                        branches.push(move_ind);
                         children.push(move_ind);
                         current_command = command_iter.next().unwrap();
                     }
                 }
-                println!("and now 0x{:x}", current_command);
+                println!("\tand now 0x{:x}", current_command);
                 if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
-                    if branches.last().unwrap() != &children[0]{
-                        println!("Entering subtree! {:?}", children[0]);
-                        branches.push(children[0]); // Add the node that is a parent of multiple nodes.
-                        children = vec![children[0]];
+                    let children_len = children.len();
+                    if branches.last() != children.get(0) {
+                        let branched_child = children.get(children_len-2).unwrap().clone();
+                        println!("Entering subtree! {:?}", branched_child);
+                        branches.push(branched_child); // Add the node that is a parent of multiple nodes.
+                        children = vec![branched_child];
+                        println!("\tChildren: {:?}, branches: {:?}", children, branches);
                     } else {
-                        println!("Already in subtree, setting children to second child\n\tChildren: {:?}, branches: {:?}", children, branches);
                         // We are already in this sub-tree! Yeah!
-                        children = vec![children[1]];
+                        branches.push(children[children_len-2]);
+                        children = vec![children[children_len-2]];
+                        println!("New subtree, adding second last child to branches.\n\tChildren: {:?}, branches: {:?}", children, branches);
                     }
                     //NOTE:current_command = command_iter.next().unwrap();
                 }
                 if current_command & 0x40 == 0x40 { // This branch is done, return down.
-                   branches.pop(); // Should be used when this supports multiple starts.
-                   children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
+                    //branches.pop(); // Should be used when this supports multiple starts.
+                    children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
+                    println!("exiting subtree, not poping branches but adding new tree.\n\tChildren: {:?}, branches: {:?}", children, branches);
+                }
+                if current_command & 0x08 == 0x08 {
+                    //let cloned_cmd_iter = command_iter.clone();
+                    let mut title: Vec<u8> = Vec::new();
+                        //cloned_cmd_iter.take_while(|x| *x != 0x08).collect();
+                    let mut comment: Vec<u8> = Vec::new();
+                        //cloned_cmd_iter.clone().take_while(|x| *x != 0x08).collect();
+                    // TODO: Consider using
+                    // http://bluss.github.io/rust-itertools/doc/itertools/trait.Itertools.html#method.take_while_ref
+                    while *command_iter.peek().unwrap() != 0x08 {
+                        title.push(command_iter.next().unwrap());
+                    }
+                    while *command_iter.peek().unwrap() != 0x00 {
+                        comment.push(command_iter.next().unwrap());
+                    }
+                    command_iter.next(); // Skip the zero.
+
+                    println!("\tTitle: {}, Comment: {}", str::from_utf8(&title).unwrap_or("Failed to parse!"), str::from_utf8(&comment).unwrap_or("Failed to parse!"));
+                    //command_iter.skip(title.len() + comment.len() +2);
                 }
             }
             Ok(graph)
@@ -249,9 +274,9 @@ mod tests {
         let file = Path::new("examplefiles/lib_documented.lib");
         let mut graph: mn::MoveGraph = match open_file(file) {
             Ok(gr) => gr,
-            Err(desc) => panic!("{:?}", desc),
+            Err(desc) => panic!("err, {:?}", desc),
         };
         println!("\n{:?}", graph);
-        panic!("Intended!");
+        //panic!("Intended!");
     }
 }
