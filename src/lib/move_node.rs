@@ -1,4 +1,4 @@
-use board_logic::BoardMarker;
+use board_logic::{BoardMarker, Point};
 use daggy;
 use daggy::Walker;
 use std::fmt;
@@ -7,7 +7,7 @@ pub type EdgeIndex = daggy::EdgeIndex<usize>;
 
 //pub type MoveGraph = daggy::Dag<NodeIndex, EdgeIndex>;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct MoveIndex {
     node_index: NodeIndex,
     edge_index: Option<EdgeIndex>,
@@ -125,6 +125,19 @@ impl MoveGraph {
         }
         (branch_ancestors, siblings)
     }
+    /// Change the move at **node**
+    ///
+    /// Returns true if success
+    pub fn set_pos(&mut self, node: MoveIndex, point: Point) -> Result<(), ()> {
+        {
+            let mut marker: &mut BoardMarker = match self.get_mut_move(node) {
+                Some(val) => val,
+                None => return Err(()),
+            };
+            marker.set_pos(&point);
+        }
+            Ok(())
+    }
 }
 
 impl fmt::Debug for MoveGraph {
@@ -153,12 +166,16 @@ fn does_it_work() {
     let a_1_2_1_1 = graph.add_move(a_1_2_1, b_1_2_1_1);
     let b_1_2_1_2 = BoardMarker::new(Point::new(7,4), Stone::Black);
     let a_1_2_1_2 = graph.add_move(a_1_2_1, b_1_2_1_2);
-    
+    {
+        let mut a_1_1_b = graph.get_mut_move(a_1_1).unwrap();
+        *a_1_1_b = BoardMarker::new(Point::new(14,14), Stone::White);
+    }
     // for i in 
     println!("{:?}", graph);
     println!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
-    let branched_down: (Vec<MoveIndex>, Vec<MoveIndex>) = graph.down_to_branch(a_1_2);;
+    let branched_down: (Vec<MoveIndex>, Vec<MoveIndex>) = graph.down_to_branch(a_1_2);
     println!("Moving down on {:?} gives: end = {:?}, remaining = {:?}", a_1_2, branched_down.0, branched_down.1);
+
     // let branched_up = graph.up_to_branch()
     //NOTE:FIXME:TODO: Add asserts!!
 }

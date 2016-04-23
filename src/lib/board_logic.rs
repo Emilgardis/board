@@ -36,6 +36,10 @@ pub struct Point {
     pub y: u32,
 }
 
+
+#[derive(Clone, Copy, Debug)]
+pub struct BoardText;
+
 /// Holds info about the marker at `Point`.
 ///
 /// # Notes
@@ -46,12 +50,19 @@ pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
     pub comment: Option<&'static str>,
-    pub board_text: Option<&'static str>, // Should find a better way to do this, maybe Vec<(Point, &'static str)>,
+    pub board_text: Option<BoardText>, // Should find a better way to do this, maybe Vec<(Point, &'static str)>,
 }
 
 impl BoardMarker {
     pub fn new(point: Point, color: Stone) -> BoardMarker {
         BoardMarker { point: point, color: color, comment: None, board_text: None}
+    }
+    // Are the following functions needed?
+    pub fn set_pos(&mut self, point: &Point) {
+        self.point = point.clone();
+    }
+    pub fn set_comment(&mut self, comment: &'static str) {
+        self.comment = if comment.len() > 0 {Some(comment)} else {None};
     }
 }
 

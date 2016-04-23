@@ -18,11 +18,10 @@ pub enum Direction {
 ///
 /// # Fields
 /// - NoMatch
-///     Used when the function did not find any match.
 /// - OutOfBounds
-///     *DEPRECATED* This should not be used.
 #[derive(PartialEq, Debug)]
 pub enum Error {
+    /// Used when the function did not find any match.
     NoMatch,
     OutOfBounds,
 }

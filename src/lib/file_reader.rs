@@ -4,7 +4,7 @@ use std::io::prelude::*;
 use std::path::{Path};
 use std::fs::{File};
 use std::error::Error;
-
+use std::slice::IterMut;
 
 use board_logic::{BoardMarker, Stone, Point};
 use move_node::{MoveGraph, MoveIndex};
@@ -44,10 +44,9 @@ pub enum FileType{
     /// to identify what the signature is for both.
     ///
     /// ## Known:
-    /// * Libraries seem to be saved with the signature 0x40 ("@") some where at the end.
-    /// Positions seems to be stored as two bytes. This means that 0x78 is the middle.
-    /// With what I know so far, after 10 "0xFF", the first move is stored. Then if the next byte is "0x00",
-    /// continue and repeat. How sub-games are stored will soon be cracked.
+    /// * Libraries are stored as such: HEADER n * [POS:FLAG:EXTENDEDINFO]. Since **.lib** supports
+    /// trees, we had to implement it [in rust too](#move_node::MoveGraph)
+    /// Positions are stored in one byte. This means that 0x78 is the middle.
     ///
     ///     This is the layout for X, Y:
     ///     
@@ -142,28 +141,87 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             return Ok(root);
         },
         Some(FileType::Lib) => {
-            let mut file_u8: Vec<u8> = Vec::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
+            let mut file_u8: Vec<u8> = Vec::new();
+                //::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
             for byte in file.bytes() {
                 match byte {
                     Ok(val) => file_u8.push(val),
-                    Err(err) => return Err(FileErr::OpenError),
+                    Err(err) => { println!("{:?}", err); return Err(FileErr::OpenError);},
                 }
             }
-            let header: Vec<u8> = file_u8.drain(0..21).collect();
-            let Game = unimplemented!();
+            let header: Vec<u8> = file_u8.drain(0..20).collect();
+            //let Game = unimplemented!();
             let major_file_version = header[8] as u32;
             let minor_file_version = header[9] as u32;
             
-            let mut command_iter = file_u8.into_iter().peekable();
 
             // Here we will want to do everything that is needed.
             // First value is "always" the starting position.
             //
+            let mut graph: MoveGraph = MoveGraph::new();
+            // A stack like thing, 0x80 pushes, 0x40 removes.
+            let mut branches: Vec<MoveIndex> = vec![];
+            // The children of the last entry in branches. First one is the "parent".
+            let mut children: Vec<MoveIndex> = vec![];
+            // If 0x00, then we are adding to branches.
+            let mut current_command: u8 = 0x00;
+            println!("{:?}", file_u8);
+            let mut command_iter = file_u8.into_iter().peekable();
+            let mut moves: u32 = 1;
             while command_iter.peek().is_some() {
-                unimplemented!();   
+                let byte: u8 = match command_iter.next(){
+                    Some(val) => val,
+                    None => panic!("Fail here!"),
+                };
+                println!("Current byte: 0x{:x}, current_command: 0x{:x}", byte, current_command);
+                if current_command & 0x02 != 0x02 { // 0x02 is no_move.
+                    if moves > 1 { // last returns a Option<&T>
+                        println!("Checking with: \n\tChildren: {:?}, branches: {:?}", children, branches);
+                        moves += 1;
+                        let last_child: MoveIndex = match children.last() {
+                            Some(val) => val.clone(),
+                            None => branches.last().unwrap().clone(),
+                            };
+                        children.push(graph.add_move(last_child,
+                                BoardMarker::new(
+                                    Point::new(((byte & 0x0F)-1) as u32, (byte >> 4) as u32),
+                                if moves % 2 == 0 {Stone::Black} else {Stone::White})
+                        ));
+                        current_command = command_iter.next().unwrap(); // FIXME: Could be none
+                    } else { // We are in as root! HACKER!
+                        println!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
+                        if byte == 0x00 {
+                            return Err(FileErr::ParseError); // Does not currently support multiple start positions.
+                        }
+                        moves += 1;
+                        let move_ind: MoveIndex = graph.new_root(
+                                BoardMarker::new(
+                                    Point::new(((byte & 0x0F)-1) as u32, (byte >> 4) as u32),
+                                Stone::Black));
+                        branches.push(move_ind);
+                        children.push(move_ind);
+                        current_command = command_iter.next().unwrap();
+                    }
+                }
+                println!("and now 0x{:x}", current_command);
+                if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
+                    if branches.last().unwrap() != &children[0]{
+                        println!("Entering subtree! {:?}", children[0]);
+                        branches.push(children[0]); // Add the node that is a parent of multiple nodes.
+                        children = vec![children[0]];
+                    } else {
+                        println!("Already in subtree, setting children to second child\n\tChildren: {:?}, branches: {:?}", children, branches);
+                        // We are already in this sub-tree! Yeah!
+                        children = vec![children[1]];
+                    }
+                    //NOTE:current_command = command_iter.next().unwrap();
+                }
+                if current_command & 0x40 == 0x40 { // This branch is done, return down.
+                   branches.pop(); // Should be used when this supports multiple starts.
+                   children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
+                }
             }
-            
-            unimplemented!();
+            Ok(graph)
         },
         _ => unimplemented!(),
     }
@@ -185,5 +243,15 @@ mod tests {
             Err(desc) => panic!("{:?}", desc),
         };
         println!("\n{:?}", graph);
+    }
+    #[test]
+    fn open_lib_file(){
+        let file = Path::new("examplefiles/lib_documented.lib");
+        let mut graph: mn::MoveGraph = match open_file(file) {
+            Ok(gr) => gr,
+            Err(desc) => panic!("{:?}", desc),
+        };
+        println!("\n{:?}", graph);
+        panic!("Intended!");
     }
 }
