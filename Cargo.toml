@@ -22,3 +22,7 @@ debug = true
 [dependencies]
 log = "*"
 daggy = "*"
+
+[dependencies.gtk]
+version = "0.0.7"
+features = ["v3_10"]
