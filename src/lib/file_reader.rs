@@ -186,7 +186,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         println!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
                                 BoardMarker::new(
-                                    Point::new(((((byte >> 4)+1) & 0x0F)) as u32, ((byte & 0x0F)-1) as u32),
+                                    Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
                                 if moves % 2 == 0 {Stone::Black} else {Stone::White})
                         ));
                         println!("\tAdded {:?} to children", children.last().unwrap());
@@ -199,7 +199,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         moves += 1;
                         let move_ind: MoveIndex = graph.new_root(
                                 BoardMarker::new(
-                                    Point::new(((byte & 0x0F)-1) as u32, (byte >> 4) as u32),
+                                    Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
                                 Stone::Black));
                         children.push(move_ind);
                         current_command = command_iter.next().unwrap();
