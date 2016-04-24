@@ -125,7 +125,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
     let filetype = FileType::new(path);
     let mut file: File = match File::open(&path) {
         Ok(file) => file,
-        Err(desc) => return Err(FileErr::OpenError),
+        Err(err) => {error!("Failed opening file. {:?}", err); return Err(FileErr::OpenError)},
     };
 
     match filetype { 
@@ -135,7 +135,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             for (index, pos) in file.bytes().skip(1).enumerate() { // First value should always be the number of moves.
                 sequence.push(BoardMarker::new(Point::from_1d((match pos {
                     Ok(val) => val,
-                    Err(_) => return Err(FileErr::ParseError),
+                    Err(err) => {error!("Failed reading file: {:?}", err); return Err(FileErr::ParseError)},
                 }) as u32, 15), if index % 2 == 0 {Stone::Black} else {Stone::White}));
             }
             let mut root = MoveGraph::new();
@@ -151,7 +151,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             for byte in file.bytes() {
                 match byte {
                     Ok(val) => file_u8.push(val),
-                    Err(err) => { debug!("{:?}", err); return Err(FileErr::OpenError);},
+                    Err(err) => {error!("Failed reading file: {:?}", err); return Err(FileErr::ParseError)},
                 }
             }
             let header: Vec<u8> = file_u8.drain(0..20).collect();
@@ -176,7 +176,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             while command_iter.peek().is_some() {
                 let byte: u8 = match command_iter.next(){
                     Some(val) => val,
-                    None => return Err(FileErr::ParseError)
+                    None => {error!("This shoudln't have happened. Error on reading command_iter.next()!", ); return Err(FileErr::ParseError)},
                 };
                                         println!("\t\tbyte: {:x}", byte);
                 debug!("Current byte: 0x{:x}, current_command: 0x{:x}", byte, current_command);
@@ -186,7 +186,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         moves += 1;
                         let last_child: MoveIndex = match children.last() {
                             Some(val) => val.clone(),
-                            None => match branches.last() { Some(last) => last.clone(), None => return Err(FileErr::ParseError)}
+                            None => match branches.last() { Some(last) => last.clone(), None => { error!("Failed reading branches.last()"); return Err(FileErr::ParseError)}},
                             };
                         debug!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
@@ -199,7 +199,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                     } else { // We are in as root! HACKER!
                         debug!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
                         if byte == 0x00 {
-                            return Err(FileErr::ParseError); // Does not currently support multiple start positions.
+                            return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                         }
                         moves += 1;
                         let move_ind: MoveIndex = graph.new_root(
@@ -213,7 +213,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 debug!("\tand now 0x{:02x}", current_command);
                 if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
                     let children_len = children.len();
-                    let lost_child = match children.last() {Some(last) => last.clone(), None=> return Err(FileErr::ParseError)} ; // Not sure if need clone.
+                    let lost_child = match children.last() {Some(last) => last.clone(), None=>{ error!("Failed reading children.last()!"); return Err(FileErr::ParseError)}} ; // Not sure if need clone.
                     branches.push(children[children_len-2]);
                     children = vec![children[children_len-2]];
                     children.push(lost_child);
@@ -232,10 +232,10 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         //cloned_cmd_iter.clone().take_while(|x| *x != 0x08).collect();
                     // TODO: Consider using
                     // http://bluss.github.io/rust-itertools/doc/itertools/trait.Itertools.html#method.take_while_ref
-                    while match command_iter.peek() {Some(command) => *command, None => return Err(FileErr::ParseError)} != 0x08 {
+                    while match command_iter.peek() {Some(command) => *command, None => return{ error!("Failed reading file while reading title!"); Err(FileErr::ParseError)}} != 0x08 {
                         title.push(command_iter.next().unwrap()); // This should be safe.
                     }
-                    while match command_iter.peek() {Some(command) => *command, None => return Err(FileErr::ParseError)} != 0x00 {
+                    while match command_iter.peek() {Some(command) => *command, None => return{ error!("Failed reading file while reading comment!"); Err(FileErr::ParseError)}} != 0x00 {
                         comment.push(command_iter.next().unwrap()); // This should be safe.
                     }
                     command_iter.next(); // Skip the zero.
