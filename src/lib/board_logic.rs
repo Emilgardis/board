@@ -68,7 +68,7 @@ impl BoardMarker {
 
 impl fmt::Debug for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "|[{:>2}, {} ]{:?}|", ((self.point.x as u8 + 65u8) as char), self.point.y, self.color)
+        write!(f, "|[{:>2}, {} ]{:?}|", ((self.point.x as u8 + 65u8) as char), self.point.y+1, self.color)
     }
 }
 

@@ -169,7 +169,6 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             println!("{:?}", file_u8);
             let mut command_iter = file_u8.into_iter().peekable().clone();
             let mut moves: u32 = 1;
-            let mut subtrees: i32 = 1; // If 0x80, increment, if 0x40, decrement, if this is 0, switch tree.
             while command_iter.peek().is_some() {
                 let byte: u8 = match command_iter.next(){
                     Some(val) => val,
@@ -184,9 +183,10 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                             Some(val) => val.clone(),
                             None => branches.last().unwrap().clone(),
                             };
+                        println!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
                                 BoardMarker::new(
-                                    Point::new(((byte & 0x0F)-1) as u32, (byte >> 4) as u32),
+                                    Point::new(((((byte >> 4)+1) & 0x0F)) as u32, ((byte & 0x0F)-1) as u32),
                                 if moves % 2 == 0 {Stone::Black} else {Stone::White})
                         ));
                         println!("\tAdded {:?} to children", children.last().unwrap());
@@ -208,30 +208,27 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 println!("\tand now 0x{:02x}", current_command);
                 if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
                     let children_len = children.len();
-                    subtrees += 1;
-                    if branches.last() != children.get(0) {
-                        let branched_child = children.get(children_len-2).unwrap().clone();
-                        println!("Entering subtree! {:?}", branched_child);
-                        branches.push(branched_child); // Add the node that is a parent of multiple nodes.
-                        children = vec![branched_child];
-                        println!("\tChildren: {:?}, branches: {:?}, subtree: {}", children, branches, subtrees);
-                    } else {
+                    //if branches.last() != children.get(0) {
+                    //    let branched_child = children.get(children_len-2).unwrap().clone();
+                    //    println!("Entering subtree! {:?}", branched_child);
+                    //    branches.push(branched_child); // Add the node that is a parent of multiple nodes.
+                    //    children = vec![branched_child];
+                    //    println!("\tChildren: {:?}, branches: {:?}, subtree: {}", children, branches, subtrees);
+                    //} else {
                         // We are already in this sub-tree! Yeah!
+                        let lost_child = children.last().unwrap().clone(); // Not sure if need clone.
                         branches.push(children[children_len-2]);
                         children = vec![children[children_len-2]];
-                        println!("New subtree, adding second last child to branches.\n\tChildren: {:?}, branches: {:?}, subtree: {}", children, branches, subtrees);
-                    }
+                        children.push(lost_child);
+                        println!("New subtree, adding second last child to branches.\n\tChildren: {:?}, branches: {:?}", children, branches);
+                    //}
                     //NOTE:current_command = command_iter.next().unwrap();
                 }
                 if current_command & 0x40 == 0x40 { // This branch is done, return down.
-                    subtrees -= 1;
-                    if subtrees < 0 {
-                        branches.pop(); // Should be used when this supports multiple starts.
-                    }
                     children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
-                    println!("exiting subtree,{}poping branches, adding new tree.\n\tChildren: {:?}, branches: {:?}",if subtrees == 0 {" "} else {" not "}, children, branches);
+                    branches.pop(); // Should be used when this supports multiple starts.
+                    println!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: {:?}",  children, branches);
                 }
-                subtrees = 1;
                 if current_command & 0x08 == 0x08 {
                     //let cloned_cmd_iter = command_iter.clone();
                     let mut title: Vec<u8> = Vec::new();
