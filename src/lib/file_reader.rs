@@ -130,9 +130,13 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
 
     match filetype { 
         Some(FileType::Pos) => {
+            debug!("Opening pos file. {:?}", path);
             let mut sequence: Vec<BoardMarker> = Vec::new();
             for (index, pos) in file.bytes().skip(1).enumerate() { // First value should always be the number of moves.
-                sequence.push(BoardMarker::new(Point::from_1d(pos.ok().unwrap() as u32, 15), if index % 2 == 0 {Stone::Black} else {Stone::White})); // was pos.ok().unwrap()
+                sequence.push(BoardMarker::new(Point::from_1d((match pos {
+                    Ok(val) => val,
+                    Err(_) => return Err(FileErr::ParseError),
+                }) as u32, 15), if index % 2 == 0 {Stone::Black} else {Stone::White}));
             }
             let mut root = MoveGraph::new();
             let mut latest: MoveIndex = root.new_root(sequence[0]);
@@ -147,7 +151,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             for byte in file.bytes() {
                 match byte {
                     Ok(val) => file_u8.push(val),
-                    Err(err) => { println!("{:?}", err); return Err(FileErr::OpenError);},
+                    Err(err) => { debug!("{:?}", err); return Err(FileErr::OpenError);},
                 }
             }
             let header: Vec<u8> = file_u8.drain(0..20).collect();
@@ -166,33 +170,34 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             let mut children: Vec<MoveIndex> = vec![];
             // If 0x00, then we are adding to branches.
             let mut current_command: u8 = 0x00;
-            println!("{:?}", file_u8);
+            debug!("{:?}", file_u8);
             let mut command_iter = file_u8.into_iter().peekable().clone();
             let mut moves: u32 = 1;
             while command_iter.peek().is_some() {
                 let byte: u8 = match command_iter.next(){
                     Some(val) => val,
-                    None => panic!("Fail here!"),
+                    None => return Err(FileErr::ParseError)
                 };
-                println!("Current byte: 0x{:x}, current_command: 0x{:x}", byte, current_command);
+                                        println!("\t\tbyte: {:x}", byte);
+                debug!("Current byte: 0x{:x}, current_command: 0x{:x}", byte, current_command);
                 if current_command & 0x02 != 0x02 { // 0x02 is no_move.
                     if moves > 1 { // last returns a Option<&T>
-                        println!("Checking with: \n\tChildren: {:?}, branches: {:?}", children, branches);
+                        debug!("Checking with: \n\tChildren: {:?}, branches: {:?}", children, branches);
                         moves += 1;
                         let last_child: MoveIndex = match children.last() {
                             Some(val) => val.clone(),
-                            None => branches.last().unwrap().clone(),
+                            None => match branches.last() { Some(last) => last.clone(), None => return Err(FileErr::ParseError)}
                             };
-                        println!("\tAdded to {:?}.", last_child);
+                        debug!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
                                 BoardMarker::new(
-                                    Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
+                                    Point::new((match byte.checked_sub(1) { Some(value) => value, None => return Err(FileErr::ParseError)} & 0x0f) as u32, (byte >> 4) as u32),
                                 if moves % 2 == 0 {Stone::Black} else {Stone::White})
                         ));
-                        println!("\tAdded {:?} to children", children.last().unwrap());
-                        current_command = command_iter.next().unwrap(); // FIXME: Could be none
+                        debug!("\tAdded {:?} to children", match children.last() {Some(last) => last, None=> return Err(FileErr::ParseError)} );
+                        current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
                     } else { // We are in as root! HACKER!
-                        println!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
+                        debug!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
                         if byte == 0x00 {
                             return Err(FileErr::ParseError); // Does not currently support multiple start positions.
                         }
@@ -202,32 +207,22 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                                     Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
                                 Stone::Black));
                         children.push(move_ind);
-                        current_command = command_iter.next().unwrap();
+                        current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
                     }
                 }
-                println!("\tand now 0x{:02x}", current_command);
+                debug!("\tand now 0x{:02x}", current_command);
                 if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
                     let children_len = children.len();
-                    //if branches.last() != children.get(0) {
-                    //    let branched_child = children.get(children_len-2).unwrap().clone();
-                    //    println!("Entering subtree! {:?}", branched_child);
-                    //    branches.push(branched_child); // Add the node that is a parent of multiple nodes.
-                    //    children = vec![branched_child];
-                    //    println!("\tChildren: {:?}, branches: {:?}, subtree: {}", children, branches, subtrees);
-                    //} else {
-                        // We are already in this sub-tree! Yeah!
-                        let lost_child = children.last().unwrap().clone(); // Not sure if need clone.
-                        branches.push(children[children_len-2]);
-                        children = vec![children[children_len-2]];
-                        children.push(lost_child);
-                        println!("New subtree, adding second last child to branches.\n\tChildren: {:?}, branches: {:?}", children, branches);
-                    //}
-                    //NOTE:current_command = command_iter.next().unwrap();
+                    let lost_child = match children.last() {Some(last) => last.clone(), None=> return Err(FileErr::ParseError)} ; // Not sure if need clone.
+                    branches.push(children[children_len-2]);
+                    children = vec![children[children_len-2]];
+                    children.push(lost_child);
+                    debug!("New subtree, adding second last child to branches.\n\tChildren: {:?}, branches: {:?}", children, branches);
                 }
                 if current_command & 0x40 == 0x40 { // This branch is done, return down.
                     children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
                     branches.pop(); // Should be used when this supports multiple starts.
-                    println!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: {:?}",  children, branches);
+                    debug!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: {:?}",  children, branches);
                 }
                 if current_command & 0x08 == 0x08 {
                     //let cloned_cmd_iter = command_iter.clone();
@@ -237,15 +232,15 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         //cloned_cmd_iter.clone().take_while(|x| *x != 0x08).collect();
                     // TODO: Consider using
                     // http://bluss.github.io/rust-itertools/doc/itertools/trait.Itertools.html#method.take_while_ref
-                    while *command_iter.peek().unwrap() != 0x08 {
-                        title.push(command_iter.next().unwrap());
+                    while match command_iter.peek() {Some(command) => *command, None => return Err(FileErr::ParseError)} != 0x08 {
+                        title.push(command_iter.next().unwrap()); // This should be safe.
                     }
-                    while *command_iter.peek().unwrap() != 0x00 {
-                        comment.push(command_iter.next().unwrap());
+                    while match command_iter.peek() {Some(command) => *command, None => return Err(FileErr::ParseError)} != 0x00 {
+                        comment.push(command_iter.next().unwrap()); // This should be safe.
                     }
                     command_iter.next(); // Skip the zero.
 
-                    println!("\tTitle: {}, Comment: {}", str::from_utf8(&title).unwrap_or("Failed to parse!"), str::from_utf8(&comment).unwrap_or("Failed to parse!"));
+                    debug!("\tTitle: {}, Comment: {}", str::from_utf8(&title).unwrap_or("Failed to parse title!"), str::from_utf8(&comment).unwrap_or("Failed to parse comment!"));
                     //command_iter.skip(title.len() + comment.len() +2);
                 }
             }
@@ -270,7 +265,7 @@ mod tests {
             Ok(gr) => gr,
             Err(desc) => panic!("{:?}", desc),
         };
-        println!("\n{:?}", graph);
+        debug!("\n{:?}", graph);
     }
     #[test]
     fn open_lib_file(){
@@ -279,7 +274,7 @@ mod tests {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };
-        println!("\n{:?}", graph);
+        debug!("\n{:?}", graph);
         //panic!("Intended!");
     }
 }

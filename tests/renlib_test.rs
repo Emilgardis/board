@@ -6,7 +6,7 @@
 
 extern crate renju;
 use renju::*;
+
 fn main(){
     unimplemented!();
-    
 }
