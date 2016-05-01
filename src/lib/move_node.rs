@@ -94,6 +94,20 @@ impl MoveGraph {
     // Convenience methods, like set comment, set pos etc. Also walk down node until multiple
     // choices. etc.
     
+    /// Gives a simple vec of all the traversed parents including root.
+    pub fn down_to_root(&self, node: MoveIndex) -> Vec<MoveIndex> {
+        let mut parent: Option<MoveIndex> = self.get_parent(node);
+        if parent.is_none() {
+            return vec![];
+        };
+        
+        let mut result: Vec<MoveIndex> = vec![parent.unwrap()];
+        while let Some(new_parent) = parent {
+            result.push(new_parent);
+            parent = self.get_parent(new_parent);
+        }
+        result
+    }
     /// Move down in the tree until there is a branch, i.e multiple choices for the next move.
     ///
     /// Returns the children that were walked  and the children that caused the branch, if any.

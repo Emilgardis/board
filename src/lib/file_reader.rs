@@ -222,6 +222,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 if current_command & 0x40 == 0x40 { // This branch is done, return down.
                     children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
                     branches.pop(); // Should be used when this supports multiple starts.
+                    moves = match children.get(0) {Some(child) => 1 + graph.down_to_root(*child).len() as u32, None => 0};
                     debug!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: {:?}",  children, branches);
                 }
                 if current_command & 0x08 == 0x08 {
@@ -274,7 +275,7 @@ mod tests {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };
-        debug!("\n{:?}", graph);
+        println!("\n{:?}", graph);
         //panic!("Intended!");
     }
 }

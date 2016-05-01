@@ -32,6 +32,8 @@ impl fmt::Display for Stone {
 /// A coordinate located at (`x`, `y`)
 #[derive(Clone, Copy, Debug)]
 pub struct Point {
+    /// Whether the point is outside the board, ie a null point.
+    pub is_null: bool,
     pub x: u32,
     pub y: u32,
 }
@@ -86,12 +88,12 @@ impl fmt::Display for BoardMarker {
 impl Point {
     /// Makes a `Point` at (`x`, `y`)
     pub fn new(x: u32, y: u32) -> Point {
-        Point { x: x, y: y }
+        Point { is_null: false, x: x, y: y }
     }
-
     /// Converts a 1D coord to a `Point`
     pub fn from_1d(idx: u32, width: u32) -> Point {
         Point {
+            is_null: if idx >/*=*/ width*width {true} else {false},
             x: idx % width,
             y: idx / width,
         }
@@ -226,10 +228,10 @@ mod tests {
     fn check_if_board_works() {
         let mut board = Board::new(15);
         assert_eq!(board.board.len(), 15 * 15);
-        let p = Point { x: 0, y: 0 };
+        let p = Point::new(0, 0);
         board.set_point(p, Stone::White);
         assert_eq!(board.get(p).unwrap().color, Stone::White);
-        let p = Point { x: 3, y: 2 };
+        let p = Point::new(3, 2);
         board.set_point(p, Stone::Black);
         assert_eq!(board.get(p).unwrap().color, Stone::Black);
         // println!("{:?}", board);
@@ -239,7 +241,7 @@ mod tests {
     #[test]
     fn clear_board() {
         let mut board = Board::new(15);
-        let p = Point { x: 7, y: 7 };
+        let p = Point::new(7, 7);
         board.set_point(p, Stone::White);
         println!("Board:\n{}", board.board);
         board.clear();
