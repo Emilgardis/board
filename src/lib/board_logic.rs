@@ -200,6 +200,13 @@ impl Board {
     pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
         self.board.get((x + y * self.boardsize) as usize)
     }
+    pub fn get_i32xy(&self, x: i32, y: i32) -> Option <&BoardMarker> {
+        if x.is_positive() && y.is_positive() {
+            self.getxy(x as u32, y as u32)
+        } else {
+            None
+        }
+    }
     /// Returns a mutable reference to the `BoardMarker` at `pos`
     pub fn get_mut(&mut self, pos: Point) -> Option<&mut BoardMarker> {
         self.board.get_mut(pos.to_1d(self.boardsize) as usize)
