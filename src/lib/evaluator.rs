@@ -15,6 +15,7 @@ use board_logic::{BoardMarker, Board, Stone};
 
 use std::collections::BTreeSet;
 
+#[derive(Debug)]
 pub enum Direction{
     Horizontal,
     Vertical,
@@ -23,24 +24,31 @@ pub enum Direction{
 
 }
 #[derive(Debug)]
-pub struct Line(BTreeSet<i8>, BoardMarker);
+pub struct Line(BTreeSet<i8>, BoardMarker, Direction);
 
 impl Line {
-    pub fn new(origin: BoardMarker) -> Line {
-        Line(BTreeSet::new(), origin)
+    pub fn new(origin: BoardMarker, dir: Direction) -> Line {
+        Line(BTreeSet::new(), origin, dir)
     }
     pub fn push(&mut self, val: i8) {
         self.0.insert(val);
     }
 }
+pub fn is_five_dir(board: &Board, marker: BoardMarker, direction: Direction) -> Result<bool, ()> {
+    let line: Line = match get_line(board, marker, direction){
+        Ok(val) => val,
+        Err(_) => return Err(()),
+    };
+    unimplemented!()
+}
 
-pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<Line, ()>{
+pub fn get_line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<Line, ()>{
     if marker.point.is_null {
         return Err(());
     }
     match direction {
         Direction::Horizontal => {
-            let mut line: Line = Line::new(marker);
+            let mut line: Line = Line::new(marker, direction);
             'right: for i in marker.point.x+1..board.boardsize+1 {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
@@ -74,7 +82,7 @@ pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<
             Ok(line)
         },
         Direction::Vertical => {
-            let mut line: Line = Line::new(marker);
+            let mut line: Line = Line::new(marker, direction);
             'down: for i in marker.point.y+1..board.boardsize+1 {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
@@ -108,7 +116,7 @@ pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<
             Ok(line)
         },
         Direction::Diagonal => {
-            let mut line: Line = Line::new(marker);
+            let mut line: Line = Line::new(marker, direction);
             'diag_down: for i in 1..board.boardsize+1 {
                 match board.getxy(marker.point.x+i, marker.point.y+i) {
                     Some(other_marker) => {
@@ -141,7 +149,40 @@ pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<
             }
             Ok(line)
         },
-        _ => Err(()),
+        Direction::AntiDiagonal => {
+            let mut line: Line = Line::new(marker, direction);
+            'anti_diag_down: for i in 1..board.boardsize+1 {
+                match board.get_i32xy((marker.point.x as i32)-(i as i32), (marker.point.y+i) as i32) {
+                    Some(other_marker) => {
+                        debug!("\tdiag_down:{:?}", other_marker);
+                        if other_marker.color == marker.color {
+                            line.push(i as i8);
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'anti_diag_down;
+                            }
+                        }
+                    },
+                    None => break 'anti_diag_down, // We have hit the border. Don't err, this is expected.
+                }
+            }
+            'anti_diag_up: for i in 1..board.boardsize+1 {
+                match board.get_i32xy((marker.point.x+i) as i32, (marker.point.y as i32) - (i as i32)) {
+                    Some(other_marker) => {
+                        debug!("\tdiag_up:{:?}", other_marker);
+                        if other_marker.color == marker.color {
+                            line.push(-(i as i8));
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'anti_diag_up;
+                            }
+                        }
+                    },
+                    None => break 'anti_diag_up,
+                }
+            }
+            Ok(line)
+        },
     }
 }
 
@@ -177,8 +218,8 @@ mod tests {
         }
         println!("\n{}\nChecks,{:?} and {:?}",
                  board.board, p1, p2);
-        println!("{:?}", line(&board, p1, Direction::Horizontal));
-        println!("{:?}", line(&board, p2, Direction::Horizontal));
+        println!("{:?}", get_line(&board, p1, Direction::Horizontal));
+        println!("{:?}", get_line(&board, p2, Direction::Horizontal));
         //assert_eq!(line(&board, p1), Ok(Direction::Horizontal));
         // assert_eq!(is_line(&board, p2).unwrap(), Direction::Horizontal);
     }
@@ -199,8 +240,8 @@ mod tests {
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
         
-        println!("{:?}", line(&board, p1, Direction::Vertical));
-        println!("{:?}", line(&board, p2, Direction::Vertical));
+        println!("{:?}", get_line(&board, p1, Direction::Vertical));
+        println!("{:?}", get_line(&board, p2, Direction::Vertical));
         //assert_eq!(is_line(&board, p1), Ok(Direction::Vertical));
         //assert_eq!(is_line(&board, p2), Ok(Direction::Vertical));
     }
@@ -221,8 +262,8 @@ mod tests {
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
         
-        println!("{:?}", line(&board, p1, Direction::Diagonal));
-        println!("{:?}", line(&board, p2, Direction::Diagonal));
+        println!("{:?}", get_line(&board, p1, Direction::Diagonal));
+        println!("{:?}", get_line(&board, p2, Direction::Diagonal));
         //assert_eq!(is_line(&board, p1), Ok(Direction::Diagonal));
         //assert_eq!(is_line(&board, p2), Ok(Direction::Diagonal));
     }
@@ -237,7 +278,7 @@ mod tests {
 
         println!("\n{}\nChecks; {:?}",
                  board.board, p1);
-
+        println!("{:?}", get_line(&board, p1, Direction::AntiDiagonal));
         //assert_eq!(is_line(&board, p1), Ok(Direction::AntiDiagonal));
     }
 }
