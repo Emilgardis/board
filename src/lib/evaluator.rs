@@ -13,6 +13,8 @@
 
 use board_logic::{BoardMarker, Board, Stone};
 
+use std::collections::BTreeSet;
+
 pub enum Direction{
     Horizontal,
     Vertical,
@@ -20,70 +22,103 @@ pub enum Direction{
     AntiDiagonal,
 
 }
-pub struct Line(Vec<i8>);
+#[derive(Debug)]
+pub struct Line(BTreeSet<i8>, BoardMarker);
 
-pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<Vec<i8>, ()>{
+impl Line {
+    pub fn new(origin: BoardMarker) -> Line {
+        Line(BTreeSet::new(), origin)
+    }
+    pub fn push(&mut self, val: i8) {
+        self.0.insert(val);
+    }
+}
+
+pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<Line, ()>{
+    if marker.point.is_null {
+        return Err(());
+    }
     match direction {
         Direction::Horizontal => {
-            let mut line: Vec<i8> = Vec::new();
-            'right: for i in marker.point.x+1..board.boardsize {
+            let mut line: Line = Line::new(marker);
+            'right: for i in marker.point.x+1..board.boardsize+1 {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
-                        debug!("\t{:?}", other_marker);
+                        debug!("\tright:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push((i-marker.point.x) as i8);
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'right;
+                            }
                         }
                     },
-                    None => return Err(()),
+                    None => break 'right,
                 }
             }
-            'left: for i in (0..marker.point.x).rev() {
+            'left: for i in (0..marker.point.x+1).rev() {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
-                        debug!("\t{:?}", other_marker);
+                        debug!("\tleft:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(((i as i8)-marker.point.x as i8));
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'left;
+                            }
                         }
                     },
-                    None => return Err(()),
+                    None => break 'left,
                 }
             }
             Ok(line)
         },
         Direction::Vertical => {
-            let mut line: Vec<i8> = Vec::new();
-            'down: for i in marker.point.y+1..board.boardsize {
+            let mut line: Line = Line::new(marker);
+            'down: for i in marker.point.y+1..board.boardsize+1 {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
-                        debug!("\t{:?}", other_marker);
+                        debug!("\tdown:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push((i-marker.point.y) as i8);
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'down;
+                            }
                         }
                     },
-                    None => return Err(()),
+                    None => break 'down,
                 }
             }
             'up: for i in (0..marker.point.y).rev() {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
-                        debug!("\t{:?}", other_marker);
+                        debug!("\tup:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(((i as i8)-marker.point.y as i8));
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'up;
+                            }
                         }
                     },
-                    None => return Err(()),
+                    None => break 'up,
                 }
             }
             Ok(line)
         },
         Direction::Diagonal => {
-            let mut line: Vec<i8> = Vec::new();
+            let mut line: Line = Line::new(marker);
             'diag_down: for i in 1..board.boardsize+1 {
-                match board.getxy(marker.point.x+1, marker.point.y+1) {
+                match board.getxy(marker.point.x+i, marker.point.y+i) {
                     Some(other_marker) => {
-                        debug!("\t{:?}", other_marker);
+                        debug!("\tdiag_down:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(i as i8);
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'diag_down;
+                            }
                         }
                     },
                     None => break 'diag_down, // We have hit the border. Don't err, this is expected.
@@ -92,9 +127,13 @@ pub fn line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<
             'diag_up: for i in 1..board.boardsize+1 {
                 match board.get_i32xy((marker.point.x as i32) - (i as i32), (marker.point.y as i32) - (i as i32)) {
                     Some(other_marker) => {
-                        debug!("\t{:?}", other_marker);
+                        debug!("\tdiag_up:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
+                        } else {
+                            if other_marker.color == marker.color.opposite() {
+                                break 'diag_up;
+                            }
                         }
                     },
                     None => break 'diag_up,

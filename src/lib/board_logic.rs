@@ -13,6 +13,16 @@ pub enum Stone {
     Black,
 }
 
+impl Stone {
+    pub fn opposite(self) -> Stone {
+        match self{
+            Stone::Empty => Stone::Empty,
+            Stone::Black => Stone::White,
+            Stone::White => Stone::Black,
+            //_ => unreachable!(),
+        }
+    }
+}
 impl Default for Stone {
     fn default() -> Stone {
         Stone::Empty
@@ -146,7 +156,7 @@ impl fmt::Display for BoardArr {
         // Not sure if needed - let vec: Vec<BoardMarker> = *self;
         let mut dy: u32 = 0;
         let width: u32 = self.last().clone().unwrap().point.y + 1;
-        write!(f, " 0:")?;
+        write!(f, "15:")?;
         for marker in self.iter() {
             if marker.point.y == dy {
                 if marker.point.x != width {
@@ -156,7 +166,7 @@ impl fmt::Display for BoardArr {
                 }
             } else {
                 dy += 1;
-                write!(f, "\n{:2}:{} ", dy, marker)?;
+                write!(f, "\n{:2}:{} ", 15-dy, marker)?;
             }
         }
         write!(f, "\n   {}", (b'A' .. b'A' + 15)
@@ -201,7 +211,7 @@ impl Board {
         self.board.get((x + y * self.boardsize) as usize)
     }
     pub fn get_i32xy(&self, x: i32, y: i32) -> Option <&BoardMarker> {
-        if x.is_positive() && y.is_positive() {
+        if (x+1).is_positive() && (y+1).is_positive() { // O is also valid
             self.getxy(x as u32, y as u32)
         } else {
             None
