@@ -80,7 +80,11 @@ impl BoardMarker {
 
 impl fmt::Debug for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "|[{:>2}, {:>2} ]{:?}|", ((self.point.x as u8 + 65u8) as char), 15-self.point.y, self.color)
+        if !self.point.is_null {
+            write!(f, "|[{:>2}, {:>2}]{:?}|", ((self.point.x as u8 + 65u8) as char), 15-self.point.y, self.color)
+        } else {
+            write!(f, "|     None    |")
+        }
     }
 }
 
@@ -224,6 +228,10 @@ impl Board {
     /// Sets the `BoardMarker` at `pos` to `color`
     pub fn set_point(&mut self, pos: Point, color: Stone) {
         self.board[pos.to_1d(self.boardsize) as usize].color = color;
+    }
+
+    pub fn set(&mut self, marker: BoardMarker) {
+        self.set_point(marker.point, marker.color);
     }
 }
 

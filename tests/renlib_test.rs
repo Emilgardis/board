@@ -6,7 +6,16 @@
 
 extern crate renju;
 use renju::*;
+use std::path::Path;
 
-fn main(){
-    unimplemented!();
+#[test]
+#[ignore]
+fn large_file(){
+    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new("RenLib/norelease_all_games.lib")) {
+        Ok(val) => val,
+        Err(err) => panic!("Couldn't open file! Error: {:?}.\nPlease download all games from renju.net/media/games.php and then convert it to a .lib file in renlib and place in RenLib/norelease_all_games.lib", err),
+    };
+
+    println!("\n{:?}", graph);
+    panic!("intended!");
 }

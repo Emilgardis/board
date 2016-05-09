@@ -14,8 +14,8 @@
 use board_logic::{BoardMarker, Board, Stone};
 
 use std::collections::BTreeSet;
-
-#[derive(Debug)]
+use std::slice::Iter;
+#[derive(Debug, Copy, Clone)]
 pub enum Direction{
     Horizontal,
     Vertical,
@@ -23,6 +23,14 @@ pub enum Direction{
     AntiDiagonal,
 
 }
+impl Direction {
+    pub fn iter() -> Iter<'static, Direction> {
+        static directions: [Direction; 4] = [Direction::Horizontal, Direction::Diagonal,
+        Direction::Diagonal, Direction::AntiDiagonal];
+        directions.into_iter()
+    }
+}
+
 #[derive(Debug)]
 pub struct Line(BTreeSet<i8>, BoardMarker, Direction);
 
@@ -33,15 +41,86 @@ impl Line {
     pub fn push(&mut self, val: i8) {
         self.0.insert(val);
     }
+    pub fn conseq_line(&self) -> u8 {
+        let mut line_cpy: BTreeSet<i8> = self.0.clone();
+        line_cpy.insert(0);
+        let mut vec_line: Vec<i8> = line_cpy.iter().cloned().collect();
+        // Count the length of the unbroken chain starting from origin (zeroth entry).
+        let middle = vec_line.iter().position(|&x| x==0).unwrap();
+        let mut vecm_line: Vec<i8> = vec_line.split_off(middle);
+        vec_line.push(0);
+        vec_line.reverse();
+		let mut len = 1u8;
+		for i in 0..vec_line.len()-1 {
+				if (vec_line[i] - vec_line[i+1]).abs() == 1 {
+					len += 1;
+				} else {
+				break;
+				}
+			}
+		for i in 0..vecm_line.len()-1 {
+			if (vecm_line[i] - vecm_line[i+1]).abs() == 1 {
+				len += 1;
+			} else {
+				break;
+			}
+	    } 
+        len
+    }
 }
 pub fn is_five_dir(board: &Board, marker: BoardMarker, direction: Direction) -> Result<bool, ()> {
     let line: Line = match get_line(board, marker, direction){
         Ok(val) => val,
         Err(_) => return Err(()),
     };
+    let length = line.conseq_line();
+    match marker.color {
+        Stone::White => {
+            if length >= 5 {
+                return Ok(true);
+            } else {
+                return Ok(false);
+            }
+        },
+        Stone::Black => {
+            if length == 5 {
+                return Ok(true);
+            } else {
+                return Ok(false);
+            }
+        },
+        _ => unreachable!(),
+    }
+}
+
+pub fn is_five(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
+    for dir in Direction::iter() {
+        match is_five_dir(board, marker, *dir) {
+            Ok(val) => { if val { return Ok(true); }},
+            Err(_) => return Err(()),
+        }
+    }
+    return Ok(false);
+}
+
+pub fn is_three_dir(board: &Board, marker: BoardMarker, direction: Direction) -> Result<bool, ()> {
+    let line: Line = match get_line(board, marker, direction) {
+        Ok(val) => val,
+        Err(_) => return Err(()),
+    };
     unimplemented!()
 }
 
+pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
+    for dir in Direction::iter() {
+        match is_three_dir(board, marker, *dir) {
+            Ok(val) => { if val { return Ok(true); }},
+            Err(_) => return Err(()),
+        }
+    }
+    return Ok(false);
+    
+}
 pub fn get_line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<Line, ()>{
     if marker.point.is_null {
         return Err(());
@@ -218,8 +297,8 @@ mod tests {
         }
         println!("\n{}\nChecks,{:?} and {:?}",
                  board.board, p1, p2);
-        println!("{:?}", get_line(&board, p1, Direction::Horizontal));
-        println!("{:?}", get_line(&board, p2, Direction::Horizontal));
+        assert_eq!(true, is_five_dir(&board, p1, Direction::Horizontal).unwrap());
+        assert_eq!(true, is_five_dir(&board, p2, Direction::Horizontal).unwrap());
         //assert_eq!(line(&board, p1), Ok(Direction::Horizontal));
         // assert_eq!(is_line(&board, p2).unwrap(), Direction::Horizontal);
     }
@@ -240,8 +319,8 @@ mod tests {
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
         
-        println!("{:?}", get_line(&board, p1, Direction::Vertical));
-        println!("{:?}", get_line(&board, p2, Direction::Vertical));
+        assert_eq!(true, is_five_dir(&board, p1, Direction::Vertical).unwrap());
+        assert_eq!(true, is_five_dir(&board, p2, Direction::Vertical).unwrap());
         //assert_eq!(is_line(&board, p1), Ok(Direction::Vertical));
         //assert_eq!(is_line(&board, p2), Ok(Direction::Vertical));
     }
@@ -262,8 +341,8 @@ mod tests {
         println!("\n{}\nChecks; {:?} and {:?}",
                  board.board, p1, p2);
         
-        println!("{:?}", get_line(&board, p1, Direction::Diagonal));
-        println!("{:?}", get_line(&board, p2, Direction::Diagonal));
+        assert_eq!(true, is_five_dir(&board, p1, Direction::Diagonal).unwrap());
+        assert_eq!(true, is_five_dir(&board, p2, Direction::Diagonal).unwrap());
         //assert_eq!(is_line(&board, p1), Ok(Direction::Diagonal));
         //assert_eq!(is_line(&board, p2), Ok(Direction::Diagonal));
     }
@@ -278,7 +357,7 @@ mod tests {
 
         println!("\n{}\nChecks; {:?}",
                  board.board, p1);
-        println!("{:?}", get_line(&board, p1, Direction::AntiDiagonal));
+        assert_eq!(true, is_five_dir(&board, p1, Direction::AntiDiagonal).unwrap());
         //assert_eq!(is_line(&board, p1), Ok(Direction::AntiDiagonal));
     }
 }

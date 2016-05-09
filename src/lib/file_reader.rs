@@ -45,12 +45,12 @@ pub enum FileType{
     /// to identify what the signature is for both.
     ///
     /// ## Known:
-    /// * Libraries are stored as such: HEADER n * [POS:FLAG:EXTENDEDINFO]. Since **.lib** supports
+    /// * Libraries are stored as such: HEADER n * [POS:FLAGS:STRINGS:EXTENDEDINFO]. Since **.lib** supports
     /// trees, we had to implement it [in rust too](#move_node::MoveGraph)
     /// Positions are stored in one byte. This means that 0x78 is the middle.
     ///
     ///     This is the layout for X, Y:
-    ///     
+    ///
     ///          0: . . . . . . . . . . . . . . .  
     ///          1: . . . . . . . . . . . . . . . 
     ///          2: . . . . . . . . . . . . . . . 
@@ -83,7 +83,7 @@ pub enum FileType{
     /// stored as such.)
     ///
     ///     
-    /// * FIXME! 
+    // * FIXME! 
     /// These are set in RenLib/MoveNode.cpp
     ///
     ///         const DOWN        = 0x000080;
@@ -100,6 +100,12 @@ pub enum FileType{
     ///
     /// *    See RenLib/RenLibDoc.cpp for implementation.
     Lib,
+    /// Renju Database File
+    ///
+    /// These are generally quite large. They include multiple games, so these will really test my
+    /// implementation of trees. They need support for findig comments as this is the way games are
+    /// found.
+    Rif,
 }
 
 impl FileType{
@@ -178,7 +184,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                     Some(val) => val,
                     None => {error!("This shoudln't have happened. Error on reading command_iter.next()!", ); return Err(FileErr::ParseError)},
                 };
-                                        println!("\t\tbyte: {:x}", byte);
+                                        debug!("\t\tbyte: {:x}", byte);
                 debug!("Current byte: 0x{:x}, current_command: 0x{:x}", byte, current_command);
                 if current_command & 0x02 != 0x02 { // 0x02 is no_move.
                     if moves > 1 { // last returns a Option<&T>
@@ -190,16 +196,20 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                             };
                         debug!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
+                                                     if byte != 0x00 {
                                 BoardMarker::new(
                                     Point::new((match byte.checked_sub(1) { Some(value) => value, None => return Err(FileErr::ParseError)} & 0x0f) as u32, (byte >> 4) as u32),
-                                if moves % 2 == 0 {Stone::Black} else {Stone::White})
+                                if moves % 2 == 0 {Stone::Black} else {Stone::White}) } else {BoardMarker::new(Point::from_1d(5, 2), Stone::Empty)}
                         ));
                         debug!("\tAdded {:?} to children", match children.last() {Some(last) => last, None=> return Err(FileErr::ParseError)} );
                         current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
                     } else { // We are in as root! HACKER!
                         debug!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
                         if byte == 0x00 {
-                            return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
+                            // we do not really care, we always support these files.
+                            println!("Skipped {:?}", command_iter.next());
+                            continue;
+                            //return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                         }
                         moves += 1;
                         let move_ind: MoveIndex = graph.new_root(
