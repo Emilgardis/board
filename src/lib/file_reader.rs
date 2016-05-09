@@ -1,3 +1,6 @@
+//! Used for reading files.
+//!
+//! Currently only supports _.pos_ and _.lib_ (RenLib) files of version 3.04+.
 #![feature(io)]
 use std::io;
 use std::str;
@@ -164,7 +167,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             //let Game = unimplemented!();
             let major_file_version = header[8] as u32;
             let minor_file_version = header[9] as u32;
-            
+            println!("Opened RenLib file, v.{}.{:>02}", major_file_version, minor_file_version);            
 
             // Here we will want to do everything that is needed.
             // First value is "always" the starting position.
@@ -179,7 +182,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             debug!("{:?}", file_u8);
             let mut command_iter = file_u8.into_iter().peekable().clone();
             let mut moves: u32 = 1;
-            while command_iter.peek().is_some() {
+            'main: while command_iter.peek().is_some() {
                 let byte: u8 = match command_iter.next(){
                     Some(val) => val,
                     None => {error!("This shoudln't have happened. Error on reading command_iter.next()!", ); return Err(FileErr::ParseError)},
@@ -208,7 +211,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         if byte == 0x00 {
                             // we do not really care, we always support these files.
                             println!("Skipped {:?}", command_iter.next());
-                            continue;
+                            continue 'main;
                             //return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                         }
                         moves += 1;
@@ -223,6 +226,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 debug!("\tand now 0x{:02x}", current_command);
                 if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
                     let children_len = children.len();
+                    if children_len < 2 { println!("Children that error me! {:?}", children); return Err(FileErr::ParseError)}
                     let lost_child = match children.last() {Some(last) => last.clone(), None=>{ error!("Failed reading children.last()!"); return Err(FileErr::ParseError)}} ; // Not sure if need clone.
                     branches.push(children[children_len-2]);
                     children = vec![children[children_len-2]];
