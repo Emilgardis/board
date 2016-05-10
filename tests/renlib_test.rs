@@ -23,7 +23,7 @@ fn large_file(){
 
 #[test]
 fn null_move() {
-    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new("tests/null_move.lib")) {
+    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new("tests/null_move2.lib")) {
         Ok(val) => val,
         Err(err) => panic!("Couldn't parse file! Error: {:?}.", err),
     };
