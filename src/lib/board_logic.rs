@@ -57,7 +57,7 @@ pub struct BoardText;
 /// # Notes
 /// This will hopefully have more fields in the future, planned for is support for comments on each
 /// marker.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,

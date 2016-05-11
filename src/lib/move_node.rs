@@ -49,6 +49,7 @@ impl fmt::Debug for MoveIndex {
         }
     }
 }
+
 pub struct MoveGraph {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
 }
