@@ -195,98 +195,103 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             // debug!("{:?}", file_u8);
             let mut command_iter = file_u8.into_iter().peekable().clone();
             let mut moves: u32 = 1;
+            let mut index: u32 = 20;
             let mut multiple_start: u32 = 0;
             'main: while command_iter.peek().is_some() {
                 let byte: u8 = match command_iter.next() {
                     Some(val) => val,
                     None => {
-                        error!("This shoudln't have happened. Error on reading command_iter.next()!", );
-                        return Err(FileErr::ParseError);
+                        error!("This shoudln't have happened. Error on reading command_iter.next()! Index: {}", index);
+                        return Err(FileErr::OpenError);
                     }
                 };
-                debug!("\t\tbyte: {:x}", byte);
-                debug!("Current byte: 0x{:02x}, current_command: 0x{:x}",
+                index += 1;
+                debug!("Current byte: 0x{:02x}, current_command: 0x{:x}. Index: {}",
                        byte,
-                       current_command);
+                       current_command, index);
                 if current_command & 0x02 != 0x02 {
                     // 0x02 is no_move.
                     if moves > 1 {
-                        // last returns a Option<&T>
                         debug!("\tChildren: {:?}, branches: {:?}", children, branches);
                         moves += 1;
+                        index += 1;
                         let last_child: MoveIndex = match children.last() {
                             Some(val) => val.clone(),
                             None => {
                                 match branches.last() {
                                     Some(last) => last.clone(),
                                     None => {
-                                        error!("Failed reading branches.last()");
+                                        error!("Failed reading branches.last(), moves was {}, but should be under 1", moves);
                                         return Err(FileErr::ParseError);
                                     }
                                 }
                             }
                         };
-                        debug!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
                                                      if byte != 0x00 {
                                 BoardMarker::new(
-                                    Point::new((match byte.checked_sub(1) { Some(value) => value, None => return Err(FileErr::ParseError)} & 0x0f) as u32, (byte >> 4) as u32),
+                                    Point::new((match byte.checked_sub(1) { Some(value) => value, None => { error!("Point was 0x00"); return Err(FileErr::ParseError)}} & 0x0f) as u32, (byte >> 4) as u32),
                                 if moves % 2 == 0 {Stone::Black} else {Stone::White}) } else {BoardMarker::new(Point::from_1d(5, 2), Stone::Empty)}
                         ));
-                        debug!("\tAdded {:?}:{:?} to children",
+                        debug!("\tAdded {:?}:{:?} to child {:?}",
                                match children.last() {
                                    Some(last) => graph.get_move(*last).unwrap(),
                                    None => return Err(FileErr::ParseError),
                                },
-                               children.last());
+                               children.last(), last_child);
                         current_command = match command_iter.next() {
-                            Some(command) => command,
-                            None => return Err(FileErr::ParseError),
+                            Some(command) => {index += 1; command},
+                            None => {error!("Error at index: {}", index+1); return Err(FileErr::ParseError)},
                         };
                     } else {
                         // We are in as root! HACKER!
-                        debug!("New first move\n\tChildren: {:?}, branches: {:?}",
+                        debug!("New first move. Children: {:?}, branches: {:?}",
                                children,
                                branches);
-                        if byte == 0x00 {
+                        if byte == 0x00 && index == 20 + 3 {
                             // we do not really care, we always support these files.
-                            debug!("Skipped first null byte. next byte:{:?}",
-                                   command_iter.peek());
+                            debug!("Skipped first null byte. next byte:{:?}. Index: {:?}",
+                                   command_iter.peek(), index+1);
                             assert!(Some(0x00) == command_iter.next(),
                                     "Error! We skipped a node!");
-
+                            index += 1;
                             continue 'main;
                             // return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                         }
                         moves += 1;
-                        if children.len() > 0 {
+                        index += 1;
+                        if children.len() > 0 && byte != 0x00{
                             // If are on a branch.
                             let move_ind: MoveIndex = graph.add_move(
                                 *children.last().unwrap(),
                                 BoardMarker::new(
-                                    Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
+                                    Point::new((match byte.checked_sub(1) { Some(value) => value, None => { error!("Point was 0x00, shouldn't happen since we already checked that!"); return Err(FileErr::ParseError)}} & 0x0f) as u32, (byte >> 4) as u32),
                                     if moves % 2 == 0 {Stone::Black} else {Stone::White}),
                                 );
                             children.push(move_ind);
-                        } else {
+                        } else if byte != 0x00 {
                             // New root.
                             let move_ind: MoveIndex = graph.new_root(
                                 BoardMarker::new(
-                                    Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
+                                    Point::new((match byte.checked_sub(1) { Some(value) => value, None => { error!("Point was 0x00"); return Err(FileErr::ParseError)}} & 0x0f) as u32, (byte >> 4) as u32),
                                 Stone::Black));
                             children.push(move_ind);
+                        } else {
+                            command_iter.next(); current_command = command_iter.next().unwrap();
+                            debug!("Move wasn't recognized.");
+                            continue 'main;
                         }
                         current_command = match command_iter.next() {
-                            Some(command) => command,
-                            None => return Err(FileErr::ParseError),
+                            Some(command) => {index += 1; command},
+                            None => {error!("Error at index: {}", index+1); return Err(FileErr::ParseError)},
                         };
                         if current_command & 0x80 == 0x80 {
-                            debug!("Multiple start nodes.");
+                            debug!("Multiple start nodes. New start");
                             multiple_start = 1;
                         }
                     }
                 }
-                debug!("\tand now 0x{:02x}", current_command);
+                debug!("Reading command: 0x{:02x}, Index: {}", current_command, index);
                 if current_command & 0x80 == 0x80 {
                     // if we are saying: This node has siblings!.
                     let children_len = children.len();
@@ -343,24 +348,27 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         Some(command) => *command,
                         None => {
                             return {
-                                error!("Failed reading file while reading title!");
+                                error!("Failed reading file while reading title! Index: {}", index+1);
                                 Err(FileErr::ParseError)
                             }
                         }
                     } != 0x08 {
+                        index += 1;
                         title.push(command_iter.next().unwrap()); // This should be safe.
                     }
                     while match command_iter.peek() {
                         Some(command) => *command,
                         None => {
                             return {
-                                error!("Failed reading file while reading comment!");
+                                error!("Failed reading file while reading comment! Index: {}", index+1);
                                 Err(FileErr::ParseError)
                             }
                         }
                     } != 0x00 {
+                        index += 1;
                         comment.push(command_iter.next().unwrap()); // This should be safe.
                     }
+                    index += 1;
                     command_iter.next(); // Skip the zero.
 
                     debug!("\tTitle: {}, Comment: {}",
@@ -369,13 +377,15 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                     // command_iter.skip(title.len() + comment.len() +2);
                 }
                 if current_command & 0x04 == 0x04 {
-                    debug!("Ignored START (0x04) flag");
+                    debug!("Ignored START (0x04) flag. Index: {}", index);
                 }
                 if current_command & 0x02 == 0x02 {
-                    debug!("Ignored non-move (0x02)");
+                    debug!("CRITICAL! Ignored non-move (0x02). Index: {}", index);
+                    info!("Currently non-moves are not parsed correctly, we need to fix this.")
                 }
                 if current_command & 0x01 == 0x01 {
-                    debug!("Ignored extension 0x01 CRITICAL");
+                    debug!("CRITICAL! Ignored extension 0x01 CRITICAL. Index: {}", index);
+                    info!("Currently extensions are not parsed correctly, we need to fix this.")
                 }
 
             }
