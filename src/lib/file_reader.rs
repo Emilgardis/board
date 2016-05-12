@@ -163,6 +163,10 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                     Err(err) => {error!("Failed reading file: {:?}", err); return Err(FileErr::ParseError)},
                 }
             }
+            if file_u8.len() < 21 {
+                error!("File not large enough.");
+                return Err(FileErr::OpenError);
+            }
             let header: Vec<u8> = file_u8.drain(0..20).collect();
             //let Game = unimplemented!();
             let major_file_version = header[8] as u32;
@@ -192,7 +196,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 debug!("Current byte: 0x{:02x}, current_command: 0x{:x}", byte, current_command);
                 if current_command & 0x02 != 0x02 { // 0x02 is no_move.
                     if moves > 1 { // last returns a Option<&T>
-                        debug!("Checking with: \n\tChildren: {:?}, branches: {:?}", children, branches);
+                        debug!("\tChildren: {:?}, branches: {:?}", children, branches);
                         moves += 1;
                         let last_child: MoveIndex = match children.last() {
                             Some(val) => val.clone(),
@@ -208,16 +212,17 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         debug!("\tAdded {:?}:{:?} to children", match children.last() {Some(last) => graph.get_move(*last).unwrap(), None=> return Err(FileErr::ParseError)}, children.last() );
                         current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
                     } else { // We are in as root! HACKER!
-                        debug!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}", children, branches);
+                        debug!("New first move\n\tChildren: {:?}, branches: {:?}", children, branches);
                         if byte == 0x00 {
                             // we do not really care, we always support these files.
-                            debug!("Skipped {:?}", command_iter.next());
+                            debug!("Skipped first null byte. next byte:{:?}", command_iter.peek());
+                            assert!(Some(0x00) == command_iter.next(), "Error! We skipped a node!");
 
                             continue 'main;
                             //return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                         }
                         moves += 1;
-                        if children.len() > 0 {
+                        if children.len() > 0 { // If are on a branch.
                             let move_ind: MoveIndex = graph.add_move(
                                 *children.last().unwrap(),
                                 BoardMarker::new(
@@ -225,7 +230,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                                     if moves % 2 == 0 {Stone::Black} else {Stone::White}),
                                 );
                             children.push(move_ind);
-                        } else { 
+                        } else { // New root.
                             let move_ind: MoveIndex = graph.new_root(
                                 BoardMarker::new(
                                     Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
