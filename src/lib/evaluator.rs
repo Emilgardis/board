@@ -25,9 +25,9 @@ pub enum Direction{
 }
 impl Direction {
     pub fn iter() -> Iter<'static, Direction> {
-        static directions: [Direction; 4] = [Direction::Horizontal, Direction::Diagonal,
+        static DIRECTIONS: [Direction; 4] = [Direction::Horizontal, Direction::Diagonal,
         Direction::Diagonal, Direction::AntiDiagonal];
-        directions.into_iter()
+        DIRECTIONS.into_iter()
     }
 }
 

@@ -167,7 +167,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             //let Game = unimplemented!();
             let major_file_version = header[8] as u32;
             let minor_file_version = header[9] as u32;
-            println!("Opened RenLib file, v.{}.{:>02}", major_file_version, minor_file_version);            
+            debug!("Opened RenLib file, v.{}.{:>02}", major_file_version, minor_file_version);            
 
             // Here we will want to do everything that is needed.
             // First value is "always" the starting position.
@@ -189,7 +189,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                     None => {error!("This shoudln't have happened. Error on reading command_iter.next()!", ); return Err(FileErr::ParseError)},
                 };
                                         debug!("\t\tbyte: {:x}", byte);
-                println!("Current byte: 0x{:x}, current_command: 0x{:x}", byte, current_command);
+                debug!("Current byte: 0x{:02x}, current_command: 0x{:x}", byte, current_command);
                 if current_command & 0x02 != 0x02 { // 0x02 is no_move.
                     if moves > 1 { // last returns a Option<&T>
                         debug!("Checking with: \n\tChildren: {:?}, branches: {:?}", children, branches);
@@ -234,20 +234,25 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                         }
                         current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
                         if current_command & 0x80 == 0x80 {
-                            // Multiple start
+                            debug!("Multiple start nodes.");
                             multiple_start = 1;     
                         }
                     }
                 }
-                println!("\tand now 0x{:02x}", current_command);
+                debug!("\tand now 0x{:02x}", current_command);
                 if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
                     let children_len = children.len();
-                    if children_len < 2 { println!("Children that error me! {:?}", children); return Err(FileErr::ParseError)}
+                    //if children_len < 2 { debug!("Children that error me! {:?}", children); return Err(FileErr::ParseError)}
                     let lost_child = match children.last() {Some(last) => last.clone(), None=>{ error!("Failed reading children.last()!"); return Err(FileErr::ParseError)}} ; // Not sure if need clone.
+                    if multiple_start == 1 {
+                        children.push(lost_child);
+                        multiple_start = 0;
+                    } else {
                     branches.push(children[children_len-2]);
                     children = vec![children[children_len-2]];
                     children.push(lost_child);
-                    debug!("New subtree, adding second last child to branches.\n\tChildren: {:?}, branches: {:?}", children, branches);
+                    }
+                    debug!("New subtree! Children: {:?}, branches: {:?}", children, branches);
                 }
                 if current_command & 0x40 == 0x40 { // This branch is done, return down.
                     children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
@@ -279,10 +284,20 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                     debug!("\tTitle: {}, Comment: {}", str::from_utf8(&title).unwrap_or("Failed to parse title!"), str::from_utf8(&comment).unwrap_or("Failed to parse comment!"));
                     //command_iter.skip(title.len() + comment.len() +2);
                 }
+                if current_command & 0x04 == 0x04 {
+                    debug!("Ignored START (0x04) flag");
+                }
+                if current_command & 0x02 == 0x02 {
+                    debug!("Ignored non-move (0x02)");
+                }
+                if current_command & 0x01 == 0x01 {
+                    debug!("Ignored extension 0x01 CRITICAL");
+                }
+                
             }
             Ok(graph)
         },
-        _ => unimplemented!(),
+        _ => return Err(FileErr::NotSupported),
     }
 }
 
@@ -310,7 +325,7 @@ mod tests {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };
-        println!("\n{:?}", graph);
+        debug!("\n{:?}", graph);
         //panic!("Intended!");
     }
 }

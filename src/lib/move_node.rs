@@ -2,7 +2,7 @@ use board_logic::{Board, BoardMarker, Point};
 use daggy;
 use daggy::Walker;
 use std::fmt;
-use num::bigint::BigUint;
+//use num::bigint::BigUint;
 
 pub type BigU = usize;
 pub type NodeIndex = daggy::NodeIndex<BigU>;
@@ -49,6 +49,7 @@ impl fmt::Debug for MoveIndex {
         }
     }
 }
+
 pub struct MoveGraph {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
 }
@@ -67,7 +68,7 @@ impl MoveGraph {
     pub fn add_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
         MoveIndex::new(self.graph.add_child(parent.node_index, 0, marker))
     }
-    pub fn  get_marker(&self, node: MoveIndex) -> Option<&BoardMarker> {
+    pub fn get_marker(&self, node: MoveIndex) -> Option<&BoardMarker> {
         self.graph.node_weight(node.node_index)
     }
     pub fn get_move_mut(&mut self, node: MoveIndex) -> Option<&mut BoardMarker> {
