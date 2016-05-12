@@ -15,11 +15,11 @@ pub enum Stone {
 
 impl Stone {
     pub fn opposite(self) -> Stone {
-        match self{
+        match self {
             Stone::Empty => Stone::Empty,
             Stone::Black => Stone::White,
             Stone::White => Stone::Black,
-            //_ => unreachable!(),
+            // _ => unreachable!(),
         }
     }
 }
@@ -31,7 +31,8 @@ impl Default for Stone {
 
 impl fmt::Display for Stone {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}",
+        write!(f,
+               "{}",
                match *self {
                    Stone::Empty => ".",
                    Stone::White => "O",
@@ -62,26 +63,39 @@ pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
     pub comment: Option<&'static str>,
-    pub board_text: Option<BoardText>, // Should find a better way to do this, maybe Vec<(Point, &'static str)>,
+    pub board_text: Option<BoardText>, /* Should find a better way to do this, maybe Vec<(Point, &'static str)>, */
 }
 
 impl BoardMarker {
     pub fn new(point: Point, color: Stone) -> BoardMarker {
-        BoardMarker { point: point, color: color, comment: None, board_text: None}
+        BoardMarker {
+            point: point,
+            color: color,
+            comment: None,
+            board_text: None,
+        }
     }
     // Are the following functions needed?
     pub fn set_pos(&mut self, point: &Point) {
         self.point = point.clone();
     }
     pub fn set_comment(&mut self, comment: &'static str) {
-        self.comment = if comment.len() > 0 {Some(comment)} else {None};
+        self.comment = if comment.len() > 0 {
+            Some(comment)
+        } else {
+            None
+        };
     }
 }
 
 impl fmt::Debug for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if !self.point.is_null {
-            write!(f, "|[{:>2}, {:>2}]{:?}|", ((self.point.x as u8 + 65u8) as char), 15-self.point.y, self.color)
+            write!(f,
+                   "|[{:>2}, {:>2}]{:?}|",
+                   ((self.point.x as u8 + 65u8) as char),
+                   15 - self.point.y,
+                   self.color)
         } else {
             write!(f, "|     None    |")
         }
@@ -90,7 +104,8 @@ impl fmt::Debug for BoardMarker {
 
 impl fmt::Display for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}",
+        write!(f,
+               "{}",
                match self.color {
                    Stone::Empty => ".",
                    Stone::White => "O",
@@ -102,12 +117,20 @@ impl fmt::Display for BoardMarker {
 impl Point {
     /// Makes a `Point` at (`x`, `y`)
     pub fn new(x: u32, y: u32) -> Point {
-        Point { is_null: false, x: x, y: y }
+        Point {
+            is_null: false,
+            x: x,
+            y: y,
+        }
     }
     /// Converts a 1D coord to a `Point`
     pub fn from_1d(idx: u32, width: u32) -> Point {
         Point {
-            is_null: if idx >/*=*/ width*width {true} else {false},
+            is_null: if idx >/*=*/ width*width {
+                true
+            } else {
+                false
+            },
             x: idx % width,
             y: idx / width,
         }
@@ -160,22 +183,25 @@ impl fmt::Display for BoardArr {
         // Not sure if needed - let vec: Vec<BoardMarker> = *self;
         let mut dy: u32 = 0;
         let width: u32 = self.last().clone().unwrap().point.y + 1;
-        write!(f, "15:")?;
+        write!(f, "15:")?;;;
         for marker in self.iter() {
             if marker.point.y == dy {
                 if marker.point.x != width {
-                    write!(f, "{} ", marker)?;
+                    write!(f, "{} ", marker)?;;;
                 } else {
-                    write!(f, "{}", marker)?;
+                    write!(f, "{}", marker)?;;;
                 }
             } else {
                 dy += 1;
-                write!(f, "\n{:2}:{} ", 15-dy, marker)?;
+                write!(f, "\n{:2}:{} ", 15-dy, marker)?;;;
             }
         }
-        write!(f, "\n   {}", (b'A' .. b'A' + 15)
-                .map(|d| (d as char).to_string())
-                .collect::<Vec<_>>().join(" "))
+        write!(f,
+               "\n   {}",
+               (b'A'..b'A' + 15)
+                   .map(|d| (d as char).to_string())
+                   .collect::<Vec<_>>()
+                   .join(" "))
     }
 }
 
@@ -189,9 +215,10 @@ impl Board {
     /// ```
     pub fn new(boardsize: u32) -> Board {
         let board: BoardArr = (0..boardsize * boardsize)
-            .map(|idx|
-                    BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty) 
-            ).collect();
+                                  .map(|idx| {
+                                      BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty)
+                                  })
+                                  .collect();
 
         Board {
             boardsize: boardsize,
@@ -202,9 +229,10 @@ impl Board {
     /// Sets all `BoardMarker`'s to `Stone::Empty` 
     pub fn clear(&mut self) {
         self.board = (0..self.boardsize * self.boardsize)
-            .map(|idx| 
-                    BoardMarker::new(Point::from_1d(idx, self.boardsize), Stone::Empty)
-                 ).collect();
+                         .map(|idx| {
+                             BoardMarker::new(Point::from_1d(idx, self.boardsize), Stone::Empty)
+                         })
+                         .collect();
     }
     /// Returns a immutable reference to the `BoardMarker` at `pos`
     pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
@@ -214,8 +242,9 @@ impl Board {
     pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
         self.board.get((x + y * self.boardsize) as usize)
     }
-    pub fn get_i32xy(&self, x: i32, y: i32) -> Option <&BoardMarker> {
-        if (x+1).is_positive() && (y+1).is_positive() { // O is also valid
+    pub fn get_i32xy(&self, x: i32, y: i32) -> Option<&BoardMarker> {
+        if (x + 1).is_positive() && (y + 1).is_positive() {
+            // O is also valid
             self.getxy(x as u32, y as u32)
         } else {
             None

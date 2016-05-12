@@ -5,8 +5,8 @@
 use std::io;
 use std::str;
 use std::io::prelude::*;
-use std::path::{Path};
-use std::fs::{File};
+use std::path::Path;
+use std::fs::File;
 use std::error::Error;
 use std::slice::IterMut;
 
@@ -14,7 +14,7 @@ use board_logic::{BoardMarker, Stone, Point};
 use move_node::{MoveGraph, MoveIndex};
 
 /// Describes the file
-pub enum FileType{
+pub enum FileType {
     /// Generic Renju _.pos_ file.
     ///
     /// These files seems to always assume a field of size 15*15
@@ -86,7 +86,7 @@ pub enum FileType{
     /// stored as such.)
     ///
     ///     
-    // * FIXME! 
+    // * FIXME!
     /// These are set in RenLib/MoveNode.cpp
     ///
     ///         const DOWN        = 0x000080;
@@ -111,7 +111,7 @@ pub enum FileType{
     Rif,
 }
 
-impl FileType{
+impl FileType {
     fn new(path: &Path) -> Option<FileType> {
         match path.extension() {
             Some(pos) if (pos == "pos") => Some(FileType::Pos),
@@ -134,14 +134,18 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
     let filetype = FileType::new(path);
     let mut file: File = match File::open(&path) {
         Ok(file) => file,
-        Err(err) => {error!("Failed opening file. {:?}", err); return Err(FileErr::OpenError)},
+        Err(err) => {
+            error!("Failed opening file. {:?}", err);
+            return Err(FileErr::OpenError);
+        }
     };
 
     match filetype { 
         Some(FileType::Pos) => {
             debug!("Opening pos file. {:?}", path);
             let mut sequence: Vec<BoardMarker> = Vec::new();
-            for (index, pos) in file.bytes().skip(1).enumerate() { // First value should always be the number of moves.
+            for (index, pos) in file.bytes().skip(1).enumerate() {
+                // First value should always be the number of moves.
                 sequence.push(BoardMarker::new(Point::from_1d((match pos {
                     Ok(val) => val,
                     Err(err) => {error!("Failed reading file: {:?}", err); return Err(FileErr::ParseError)},
@@ -153,14 +157,17 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 latest = root.add_move(latest, marker_move)
             }
             return Ok(root);
-        },
+        }
         Some(FileType::Lib) => {
             let mut file_u8: Vec<u8> = Vec::new();
-                //::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
+            // ::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
             for byte in file.bytes() {
                 match byte {
                     Ok(val) => file_u8.push(val),
-                    Err(err) => {error!("Failed reading file: {:?}", err); return Err(FileErr::ParseError)},
+                    Err(err) => {
+                        error!("Failed reading file: {:?}", err);
+                        return Err(FileErr::ParseError);
+                    }
                 }
             }
             if file_u8.len() < 21 {
@@ -168,10 +175,12 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 return Err(FileErr::OpenError);
             }
             let header: Vec<u8> = file_u8.drain(0..20).collect();
-            //let Game = unimplemented!();
+            // let Game = unimplemented!();
             let major_file_version = header[8] as u32;
             let minor_file_version = header[9] as u32;
-            debug!("Opened RenLib file, v.{}.{:>02}", major_file_version, minor_file_version);            
+            debug!("Opened RenLib file, v.{}.{:>02}",
+                   major_file_version,
+                   minor_file_version);
 
             // Here we will want to do everything that is needed.
             // First value is "always" the starting position.
@@ -183,25 +192,40 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
             let mut children: Vec<MoveIndex> = vec![];
             // If 0x00, then we are adding to branches.
             let mut current_command: u8 = 0x00;
-            //debug!("{:?}", file_u8);
+            // debug!("{:?}", file_u8);
             let mut command_iter = file_u8.into_iter().peekable().clone();
             let mut moves: u32 = 1;
             let mut multiple_start: u32 = 0;
             'main: while command_iter.peek().is_some() {
-                let byte: u8 = match command_iter.next(){
+                let byte: u8 = match command_iter.next() {
                     Some(val) => val,
-                    None => {error!("This shoudln't have happened. Error on reading command_iter.next()!", ); return Err(FileErr::ParseError)},
+                    None => {
+                        error!("This shoudln't have happened. Error on reading command_iter.next()!", );
+                        return Err(FileErr::ParseError);
+                    }
                 };
-                                        debug!("\t\tbyte: {:x}", byte);
-                debug!("Current byte: 0x{:02x}, current_command: 0x{:x}", byte, current_command);
-                if current_command & 0x02 != 0x02 { // 0x02 is no_move.
-                    if moves > 1 { // last returns a Option<&T>
+                debug!("\t\tbyte: {:x}", byte);
+                debug!("Current byte: 0x{:02x}, current_command: 0x{:x}",
+                       byte,
+                       current_command);
+                if current_command & 0x02 != 0x02 {
+                    // 0x02 is no_move.
+                    if moves > 1 {
+                        // last returns a Option<&T>
                         debug!("\tChildren: {:?}, branches: {:?}", children, branches);
                         moves += 1;
                         let last_child: MoveIndex = match children.last() {
                             Some(val) => val.clone(),
-                            None => match branches.last() { Some(last) => last.clone(), None => { error!("Failed reading branches.last()"); return Err(FileErr::ParseError)}},
-                            };
+                            None => {
+                                match branches.last() {
+                                    Some(last) => last.clone(),
+                                    None => {
+                                        error!("Failed reading branches.last()");
+                                        return Err(FileErr::ParseError);
+                                    }
+                                }
+                            }
+                        };
                         debug!("\tAdded to {:?}.", last_child);
                         children.push(graph.add_move(last_child,
                                                      if byte != 0x00 {
@@ -209,20 +233,34 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                                     Point::new((match byte.checked_sub(1) { Some(value) => value, None => return Err(FileErr::ParseError)} & 0x0f) as u32, (byte >> 4) as u32),
                                 if moves % 2 == 0 {Stone::Black} else {Stone::White}) } else {BoardMarker::new(Point::from_1d(5, 2), Stone::Empty)}
                         ));
-                        debug!("\tAdded {:?}:{:?} to children", match children.last() {Some(last) => graph.get_move(*last).unwrap(), None=> return Err(FileErr::ParseError)}, children.last() );
-                        current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
-                    } else { // We are in as root! HACKER!
-                        debug!("New first move\n\tChildren: {:?}, branches: {:?}", children, branches);
+                        debug!("\tAdded {:?}:{:?} to children",
+                               match children.last() {
+                                   Some(last) => graph.get_move(*last).unwrap(),
+                                   None => return Err(FileErr::ParseError),
+                               },
+                               children.last());
+                        current_command = match command_iter.next() {
+                            Some(command) => command,
+                            None => return Err(FileErr::ParseError),
+                        };
+                    } else {
+                        // We are in as root! HACKER!
+                        debug!("New first move\n\tChildren: {:?}, branches: {:?}",
+                               children,
+                               branches);
                         if byte == 0x00 {
                             // we do not really care, we always support these files.
-                            debug!("Skipped first null byte. next byte:{:?}", command_iter.peek());
-                            assert!(Some(0x00) == command_iter.next(), "Error! We skipped a node!");
+                            debug!("Skipped first null byte. next byte:{:?}",
+                                   command_iter.peek());
+                            assert!(Some(0x00) == command_iter.next(),
+                                    "Error! We skipped a node!");
 
                             continue 'main;
-                            //return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
+                            // return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                         }
                         moves += 1;
-                        if children.len() > 0 { // If are on a branch.
+                        if children.len() > 0 {
+                            // If are on a branch.
                             let move_ind: MoveIndex = graph.add_move(
                                 *children.last().unwrap(),
                                 BoardMarker::new(
@@ -230,64 +268,105 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                                     if moves % 2 == 0 {Stone::Black} else {Stone::White}),
                                 );
                             children.push(move_ind);
-                        } else { // New root.
+                        } else {
+                            // New root.
                             let move_ind: MoveIndex = graph.new_root(
                                 BoardMarker::new(
                                     Point::new((byte-1 & 0x0f) as u32, (byte >> 4) as u32),
                                 Stone::Black));
                             children.push(move_ind);
                         }
-                        current_command = match command_iter.next() {Some(command) => command, None=> return Err(FileErr::ParseError)};
+                        current_command = match command_iter.next() {
+                            Some(command) => command,
+                            None => return Err(FileErr::ParseError),
+                        };
                         if current_command & 0x80 == 0x80 {
                             debug!("Multiple start nodes.");
-                            multiple_start = 1;     
+                            multiple_start = 1;
                         }
                     }
                 }
                 debug!("\tand now 0x{:02x}", current_command);
-                if current_command & 0x80 == 0x80 { // if we are saying: This node has siblings!.
+                if current_command & 0x80 == 0x80 {
+                    // if we are saying: This node has siblings!.
                     let children_len = children.len();
-                    //if children_len < 2 { debug!("Children that error me! {:?}", children); return Err(FileErr::ParseError)}
-                    let lost_child = match children.last() {Some(last) => last.clone(), None=>{ error!("Failed reading children.last()!"); return Err(FileErr::ParseError)}} ; // Not sure if need clone.
+                    // if children_len < 2 { debug!("Children that error me! {:?}", children); return Err(FileErr::ParseError)}
+                    let lost_child = match children.last() {
+                        Some(last) => last.clone(),
+                        None => {
+                            error!("Failed reading children.last()!");
+                            return Err(FileErr::ParseError);
+                        }
+                    }; // Not sure if need clone.
                     if multiple_start == 1 {
                         children.push(lost_child);
                         multiple_start = 0;
                     } else {
-                    branches.push(children[children_len-2]);
-                    children = vec![children[children_len-2]];
-                    children.push(lost_child);
+                        branches.push(children[children_len - 2]);
+                        children = vec![children[children_len - 2]];
+                        children.push(lost_child);
                     }
-                    debug!("New subtree! Children: {:?}, branches: {:?}", children, branches);
+                    debug!("New subtree! Children: {:?}, branches: {:?}",
+                           children,
+                           branches);
                 }
-                if current_command & 0x40 == 0x40 { // This branch is done, return down.
-                    children = match branches.last() { Some(val) => vec![val.clone()], None => vec![]};
+                if current_command & 0x40 == 0x40 {
+                    // This branch is done, return down.
+                    children = match branches.last() {
+                        Some(val) => vec![val.clone()],
+                        None => vec![],
+                    };
                     if branches.len() > 1 && multiple_start == 1 {
                         branches.pop(); // Should be used when this supports multiple starts.
                     } else {
                         multiple_start = 0;
                     }
-                    moves = match children.get(0) {Some(child) => 1 + graph.down_to_root(*child).len() as u32, None => 0};
-                    debug!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: {:?}",  children, branches);
+                    moves = match children.get(0) {
+                        Some(child) => 1 + graph.down_to_root(*child).len() as u32,
+                        None => 0,
+                    };
+                    debug!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: \
+                            {:?}",
+                           children,
+                           branches);
                 }
 
                 if current_command & 0x08 == 0x08 {
-                    //let cloned_cmd_iter = command_iter.clone();
+                    // let cloned_cmd_iter = command_iter.clone();
                     let mut title: Vec<u8> = Vec::new();
-                        //cloned_cmd_iter.take_while(|x| *x != 0x08).collect();
+                    // cloned_cmd_iter.take_while(|x| *x != 0x08).collect();
                     let mut comment: Vec<u8> = Vec::new();
-                        //cloned_cmd_iter.clone().take_while(|x| *x != 0x08).collect();
+                    // cloned_cmd_iter.clone().take_while(|x| *x != 0x08).collect();
                     // TODO: Consider using
                     // http://bluss.github.io/rust-itertools/doc/itertools/trait.Itertools.html#method.take_while_ref
-                    while match command_iter.peek() {Some(command) => *command, None => return{ error!("Failed reading file while reading title!"); Err(FileErr::ParseError)}} != 0x08 {
+                    while match command_iter.peek() {
+                        Some(command) => *command,
+                        None => {
+                            return {
+                                error!("Failed reading file while reading title!");
+                                Err(FileErr::ParseError)
+                            }
+                        }
+                    } != 0x08 {
                         title.push(command_iter.next().unwrap()); // This should be safe.
                     }
-                    while match command_iter.peek() {Some(command) => *command, None => return{ error!("Failed reading file while reading comment!"); Err(FileErr::ParseError)}} != 0x00 {
+                    while match command_iter.peek() {
+                        Some(command) => *command,
+                        None => {
+                            return {
+                                error!("Failed reading file while reading comment!");
+                                Err(FileErr::ParseError)
+                            }
+                        }
+                    } != 0x00 {
                         comment.push(command_iter.next().unwrap()); // This should be safe.
                     }
                     command_iter.next(); // Skip the zero.
 
-                    debug!("\tTitle: {}, Comment: {}", str::from_utf8(&title).unwrap_or("Failed to parse title!"), str::from_utf8(&comment).unwrap_or("Failed to parse comment!"));
-                    //command_iter.skip(title.len() + comment.len() +2);
+                    debug!("\tTitle: {}, Comment: {}",
+                           str::from_utf8(&title).unwrap_or("Failed to parse title!"),
+                           str::from_utf8(&comment).unwrap_or("Failed to parse comment!"));
+                    // command_iter.skip(title.len() + comment.len() +2);
                 }
                 if current_command & 0x04 == 0x04 {
                     debug!("Ignored START (0x04) flag");
@@ -298,10 +377,10 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, FileErr> {
                 if current_command & 0x01 == 0x01 {
                     debug!("Ignored extension 0x01 CRITICAL");
                 }
-                
+
             }
             Ok(graph)
-        },
+        }
         _ => return Err(FileErr::NotSupported),
     }
 }
@@ -315,7 +394,7 @@ mod tests {
     use move_node as mn;
 
     #[test]
-    fn open_pos_file(){
+    fn open_pos_file() {
         let file = Path::new("examplefiles/example.pos");
         let mut graph: mn::MoveGraph = match open_file(file) {
             Ok(gr) => gr,
@@ -324,13 +403,13 @@ mod tests {
         debug!("\n{:?}", graph);
     }
     #[test]
-    fn open_lib_file(){
+    fn open_lib_file() {
         let file = Path::new("examplefiles/lib_documented.lib");
         let mut graph: mn::MoveGraph = match open_file(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };
         debug!("\n{:?}", graph);
-        //panic!("Intended!");
+        // panic!("Intended!");
     }
 }
