@@ -201,13 +201,8 @@ pub fn parse_lib(file_u8: Vec<u8>) -> Result<MoveGraph> {
                 moves += 1;
                 let last_child: MoveIndex = match children.last() {
                     Some(val) => {
-                        if let Some(branch_val) = branches.last() {
-                            println!("adding move to last branch:{:?}", val);
-                            *branch_val
-                        } else {
-                            println!("adding move to child:{:?}", val);
-                            val.clone()
-                        }
+                        println!("adding move to child:{:?}", val);
+                        val.clone()
                     },
                     None => {
                         let val = *branches.last().ok_or("Failed reading branches.last()")?;
@@ -318,7 +313,7 @@ pub fn parse_lib(file_u8: Vec<u8>) -> Result<MoveGraph> {
             // TODO: A sibling can be first move.
             // NOTE: If we are both 0x80 and 0x40 what happens?
             // I believe 0x40 should be checked first.
-            println!("We have some siblings. Add my parent to branches and continue.");
+            println!("We have some siblings. Add my parent to branches and replace with childreb");
             let children_len = children.len();
             if children_len < 2 { // Not sure why.
                 //println!("Children that error me! {:?}", children);
@@ -330,8 +325,11 @@ pub fn parse_lib(file_u8: Vec<u8>) -> Result<MoveGraph> {
             }
             // The one we just pushed has siblings, that means the branch is on the parent.
             let parent = children[children_len - 2];
+            let child = children[children_len -1];
             println!("Parent is {:?}", parent);
             branches.push(parent);
+            children = vec![parent];
+            children.push(child);
 
             // OLD CODE: May be wrong or right.
             //
