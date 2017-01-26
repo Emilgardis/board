@@ -130,7 +130,7 @@ impl MoveGraph {
         let mut board: Board = Board::new(15);
         for index_marker in move_list {
             board.set(match self.get_move(index_marker) {
-                Some(val) => *val,
+                Some(val) => val.clone(),
                 None => return None,
             });
         }

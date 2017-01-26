@@ -35,8 +35,8 @@ impl Direction {
 pub struct Line(BTreeSet<i8>, BoardMarker, Direction);
 
 impl Line {
-    pub fn new(origin: BoardMarker, dir: Direction) -> Line {
-        Line(BTreeSet::new(), origin, dir)
+    pub fn new(origin: &BoardMarker, dir: Direction) -> Line {
+        Line(BTreeSet::new(), origin.clone(), dir)
     }
     pub fn push(&mut self, val: i8) {
         self.0.insert(val);
@@ -68,8 +68,9 @@ impl Line {
         len
     }
 }
-pub fn is_five_dir(board: &Board, marker: BoardMarker, direction: Direction) -> Result<bool, ()> {
-    let line: Line = match get_line(board, marker, direction){
+
+pub fn is_five_dir(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
+    let line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
     };
@@ -93,7 +94,7 @@ pub fn is_five_dir(board: &Board, marker: BoardMarker, direction: Direction) -> 
     }
 }
 
-pub fn is_five(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
+pub fn is_five(board: &Board, marker: &BoardMarker) -> Result<bool, ()> {
     for dir in Direction::iter() {
         match is_five_dir(board, marker, *dir) {
             Ok(val) => { if val { return Ok(true); }},
@@ -103,7 +104,7 @@ pub fn is_five(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
     return Ok(false);
 }
 
-pub fn is_three_dir(board: &Board, marker: BoardMarker, direction: Direction) -> Result<bool, ()> {
+pub fn is_three_dir(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
     let line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
@@ -113,7 +114,7 @@ pub fn is_three_dir(board: &Board, marker: BoardMarker, direction: Direction) ->
 
 pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
     for dir in Direction::iter() {
-        match is_three_dir(board, marker, *dir) {
+        match is_three_dir(board, &marker, *dir) {
             Ok(val) => { if val { return Ok(true); }},
             Err(_) => return Err(()),
         }
@@ -121,13 +122,13 @@ pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
     return Ok(false);
     
 }
-pub fn get_line(board: &Board, marker: BoardMarker, direction: Direction) -> Result<Line, ()>{
+pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<Line, ()>{
     if marker.point.is_null {
         return Err(());
     }
     match direction {
         Direction::Horizontal => {
-            let mut line: Line = Line::new(marker, direction);
+            let mut line: Line = Line::new(&marker, direction);
             'right: for i in marker.point.x+1..board.boardsize+1 {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
@@ -161,7 +162,7 @@ pub fn get_line(board: &Board, marker: BoardMarker, direction: Direction) -> Res
             Ok(line)
         },
         Direction::Vertical => {
-            let mut line: Line = Line::new(marker, direction);
+            let mut line: Line = Line::new(&marker, direction);
             'down: for i in marker.point.y+1..board.boardsize+1 {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
@@ -195,7 +196,7 @@ pub fn get_line(board: &Board, marker: BoardMarker, direction: Direction) -> Res
             Ok(line)
         },
         Direction::Diagonal => {
-            let mut line: Line = Line::new(marker, direction);
+            let mut line: Line = Line::new(&marker, direction);
             'diag_down: for i in 1..board.boardsize+1 {
                 match board.getxy(marker.point.x+i, marker.point.y+i) {
                     Some(other_marker) => {
@@ -229,7 +230,7 @@ pub fn get_line(board: &Board, marker: BoardMarker, direction: Direction) -> Res
             Ok(line)
         },
         Direction::AntiDiagonal => {
-            let mut line: Line = Line::new(marker, direction);
+            let mut line: Line = Line::new(&marker, direction);
             'anti_diag_down: for i in 1..board.boardsize+1 {
                 match board.get_i32xy((marker.point.x as i32)-(i as i32), (marker.point.y+i) as i32) {
                     Some(other_marker) => {

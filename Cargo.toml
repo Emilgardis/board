@@ -23,3 +23,5 @@ debug = true
 log = "*"
 daggy = "*"
 num = "*"
+error-chain = "*"
+clap = "*"
