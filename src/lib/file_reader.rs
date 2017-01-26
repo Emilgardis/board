@@ -290,11 +290,22 @@ pub fn parse_lib(file_u8: Vec<u8>) -> Result<MoveGraph> {
         println!("New command now 0x{:02x}", current_command);
         if current_command & 0x40 == 0x40 {
             // This branch is done, return down.
-            println!("Branch down");
+            println!("Branching down");
+            let lost_child = if current_command & 0x80 == 0x80 {
+                // We need to add the current branch to branches, not sure what this actually is...
+                // I believe this is when only one stone is on the upcomming branch.
+                println!("Uncertain about 0xc0, add second last child to branches.");
+                println!("Branches: {:?}, children: {:?}", branches, children);
+                let children_len = children.len();
+                Some(children[children_len-2])
+            } else {
+                None
+            };
             children = match branches.last() {
                 Some(val) => vec![val.clone()],
                 None => vec![],
             };
+            children.extend(lost_child);
             if branches.len() > 1 {
                 branches.pop(); // Should be used when this supports multiple starts.
             }
@@ -313,15 +324,18 @@ pub fn parse_lib(file_u8: Vec<u8>) -> Result<MoveGraph> {
             // TODO: A sibling can be first move.
             // NOTE: If we are both 0x80 and 0x40 what happens?
             // I believe 0x40 should be checked first.
-            println!("We have some siblings. Add my parent to branches and replace with childreb");
+            println!("We have some siblings. Add my parent to branches and replace with children");
             let children_len = children.len();
-            if children_len < 2 { // Not sure why.
+            if children_len <= 2 { // Not sure why.
                 //println!("Children that error me! {:?}", children);
                 //return Err(ErrorKind::LibParseError.into());
                 // FIXME: May be wrong.
-                println!("Multiple first moves.");
-                multiple_start = 1;
-                continue 'main;
+                if moves < 2 {
+                    multiple_start = 1;
+                
+                    continue 'main;
+                }
+                
             }
             // The one we just pushed has siblings, that means the branch is on the parent.
             let parent = children[children_len - 2];
