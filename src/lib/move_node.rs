@@ -1,8 +1,10 @@
 use board_logic::{Board, BoardMarker, Point};
+use errors::*;
 use daggy;
 use daggy::Walker;
 use std::fmt;
 use num::bigint::BigUint;
+use std::str::FromStr;
 
 pub type BigU = usize;
 pub type NodeIndex = daggy::NodeIndex<BigU>;
@@ -23,18 +25,29 @@ pub struct MoveIndex {
     edge_index: Option<EdgeIndex>,
 }
 
-impl MoveIndex { 
+impl MoveIndex {
     pub fn new(edge_node: (EdgeIndex, NodeIndex)) -> MoveIndex {
-        MoveIndex { node_index: edge_node.1, edge_index: Some(edge_node.0) }
+        MoveIndex {
+            node_index: edge_node.1,
+            edge_index: Some(edge_node.0),
+        }
     }
 
     pub fn new_node(node: NodeIndex) -> MoveIndex {
-        MoveIndex { node_index: node, edge_index: None }
+        MoveIndex {
+            node_index: node,
+            edge_index: None,
+        }
     }
 
     pub fn from_option(edge_node_option: Option<(EdgeIndex, NodeIndex)>) -> Option<MoveIndex> {
         match edge_node_option {
-            Some(edge_node) => Some(MoveIndex { node_index: edge_node.1, edge_index: Some(edge_node.0) }),
+            Some(edge_node) => {
+                Some(MoveIndex {
+                         node_index: edge_node.1,
+                         edge_index: Some(edge_node.0),
+                     })
+            }
             None => None,
         }
     }
@@ -50,6 +63,21 @@ impl fmt::Debug for MoveIndex {
     }
 }
 
+impl FromStr for MoveIndex {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<MoveIndex> {
+        let (n, e) = {
+            let mut t = s.splitn(2, " ");
+            (t.next(), t.next())
+        };
+        match e {
+            None => Ok(MoveIndex::new_node(n.unwrap().parse::<BigU>()?.into())),
+            Some(e) => return Err("Edges not currently supported for parsing.".into()),
+        }
+    }
+}
+
 pub struct MoveGraph {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
 }
@@ -57,9 +85,7 @@ pub struct MoveGraph {
 
 impl MoveGraph {
     pub fn new() -> MoveGraph {
-        MoveGraph {
-            graph: daggy::Dag::with_capacity(255, 255)
-        }
+        MoveGraph { graph: daggy::Dag::with_capacity(255, 255) }
     }
 
     pub fn new_root(&mut self, marker: BoardMarker) -> MoveIndex {
@@ -68,7 +94,7 @@ impl MoveGraph {
     pub fn add_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
         MoveIndex::new(self.graph.add_child(parent.node_index, 0, marker))
     }
-    pub fn  get_marker(&self, node: MoveIndex) -> Option<&BoardMarker> {
+    pub fn get_marker(&self, node: MoveIndex) -> Option<&BoardMarker> {
         self.graph.node_weight(node.node_index)
     }
     pub fn get_move_mut(&mut self, node: MoveIndex) -> Option<&mut BoardMarker> {
@@ -107,14 +133,14 @@ impl MoveGraph {
     }
     // Convenience methods, like set comment, set pos etc. Also walk down node until multiple
     // choices. etc.
-    
+
     /// Gives a simple vec of all the traversed parents including root.
     pub fn down_to_root(&self, node: MoveIndex) -> Vec<MoveIndex> {
         let mut parent: Option<MoveIndex> = self.get_parent(node);
         if parent.is_none() {
             return vec![];
         };
-        
+
         let mut result: Vec<MoveIndex> = vec![parent.unwrap()];
         while let Some(new_parent) = parent {
             result.push(new_parent);
@@ -124,22 +150,26 @@ impl MoveGraph {
     }
 
     /// Returns the board as it would look like when end_node was played.
-    pub fn as_board(&self, end_node: MoveIndex) -> Option<Board> {
+    pub fn as_board(&self, end_node: MoveIndex) -> Result<Board> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
         move_list.push(end_node);
         let mut board: Board = Board::new(15);
         for index_marker in move_list {
             board.set(match self.get_move(index_marker) {
-                Some(val) => val.clone(),
-                None => return None,
-            });
+                          Some(val) => val.clone(),
+                          None => {
+                              return Err(format!("Couldn't get move at: {:?}", index_marker).into())
+                          }
+                      });
         }
-        Some(board)
+        board.last_move = self.get_move(end_node).unwrap().point.into();
+        println!("{:?}", board.get(board.last_move.unwrap()).unwrap().comment);
+        Ok(board)
     }
     /// Move down in the tree until there is a branch, i.e multiple choices for the next move.
     ///
     /// Returns the children that were walked  and the children that caused the branch, if any.
-    pub fn down_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) { 
+    pub fn down_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
         // Check if we should wrap the result in an option.
         let mut branch_decendants: Vec<MoveIndex> = Vec::new();
         let mut children = self.get_children(node);
@@ -159,7 +189,8 @@ impl MoveGraph {
 
         // Ehm... FIXME: Not sure if this is right. We want to go up to branch, even if it is close.
         let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
-        while parent.is_some() && siblings.len() == 1 { // If it is a lonechild len of siblings will be 1.
+        while parent.is_some() && siblings.len() == 1 {
+            // If it is a lonechild len of siblings will be 1.
             let parentunw: MoveIndex = parent.unwrap(); // Safe as parent must be some for this code to run.
             branch_ancestors.push(parentunw); // Same as in fn down_to_branch, FIXME
             parent = self.get_parent(parentunw);
@@ -170,15 +201,18 @@ impl MoveGraph {
     /// Change the move at **node**
     ///
     /// Returns Ok(()) if success
-    pub fn set_pos(&mut self, node: MoveIndex, point: Point) -> Result<(), ()> {
+    pub fn set_pos(&mut self, node: MoveIndex, point: Point) -> Result<()> {
         {
             let mut marker: &mut BoardMarker = match self.get_move_mut(node) {
                 Some(val) => val,
-                None => return Err(()),
+                None => {
+                    return Err(format!("Couldn't set position: {:?} at node {:?}", point, node)
+                                   .into())
+                }
             };
             marker.set_pos(&point);
         }
-            Ok(())
+        Ok(())
     }
 }
 
@@ -193,31 +227,35 @@ impl fmt::Debug for MoveGraph {
 fn does_it_work() {
     use board_logic::*;
     let mut graph = MoveGraph::new();
-    let a = graph.new_root(BoardMarker::new(Point::new(7,7), Stone::Black));
-    let b_1 = BoardMarker::new(Point::new(8,7), Stone::White);
-    let a_1 = graph.add_move(a, b_1);
-    let b_2 = BoardMarker::new(Point::new(9,7), Stone::Black);
+    let a = graph.new_root(BoardMarker::new(Point::new(7, 7), Stone::Black));
+    let b_1 = BoardMarker::new(Point::new(8, 7), Stone::White);
+    let a_1 = graph.add_move(a, b_1.clone());
+    let b_2 = BoardMarker::new(Point::new(9, 7), Stone::Black);
     let a_2 = graph.add_move(a, b_2);
-    let b_1_1 = BoardMarker::new(Point::new(10,7), Stone::White);
+    let b_1_1 = BoardMarker::new(Point::new(10, 7), Stone::White);
     let a_1_1 = graph.add_move(a_1, b_1_1);
-    let b_1_2 = BoardMarker::new(Point::new(11,7), Stone::Black);
+    let b_1_2 = BoardMarker::new(Point::new(11, 7), Stone::Black);
     let a_1_2 = graph.add_move(a_1, b_1_2);
-    let b_1_2_1 = BoardMarker::new(Point::new(12,7), Stone::White);
+    let b_1_2_1 = BoardMarker::new(Point::new(12, 7), Stone::White);
     let a_1_2_1 = graph.add_move(a_1_2, b_1_2_1);
     let b_1_2_1_1 = BoardMarker::new(Point::new(8, 4), Stone::Black);
     let a_1_2_1_1 = graph.add_move(a_1_2_1, b_1_2_1_1);
-    let b_1_2_1_2 = BoardMarker::new(Point::new(7,4), Stone::Black);
+    let b_1_2_1_2 = BoardMarker::new(Point::new(7, 4), Stone::Black);
     let a_1_2_1_2 = graph.add_move(a_1_2_1, b_1_2_1_2);
     {
         let mut a_1_1_b = graph.get_move_mut(a_1_1).unwrap();
-        *a_1_1_b = BoardMarker::new(Point::new(14,14), Stone::White);
+        *a_1_1_b = BoardMarker::new(Point::new(14, 14), Stone::White);
     }
-    // for i in 
+    // for i in
     println!("{:?}", graph);
     println!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
     let branched_down: (Vec<MoveIndex>, Vec<MoveIndex>) = graph.down_to_branch(a_1_2);
-    println!("Moving down on {:?} gives: end = {:?}, remaining = {:?}", a_1_2, branched_down.0, branched_down.1);
-    println!("Board from a_1_2_1_2\n{}", graph.as_board(a_1_2_1_2).unwrap().board);
+    println!("Moving down on {:?} gives: end = {:?}, remaining = {:?}",
+             a_1_2,
+             branched_down.0,
+             branched_down.1);
+    println!("Board from a_1_2_1_2\n{}",
+             graph.as_board(a_1_2_1_2).unwrap().board);
     // let branched_up = graph.up_to_branch()
     //NOTE:FIXME:TODO: Add asserts!!
 }
