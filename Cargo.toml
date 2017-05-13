@@ -20,9 +20,11 @@ path = "src/bin/main.rs"
 debug = true
 
 [dependencies]
-log = "*"
+slog = "2"
+slog-stdlog = "2"
 daggy = "*"
 num = "*"
+nom = "*"
 error-chain = "*"
 clap = "*"
 rustyline = "*"

@@ -239,7 +239,6 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
                       Some(command) => *command,
                       None => {
                           return {
-                                     error!("Failed reading file while reading title!");
                                      Err(ErrorKind::LibParseError.into())
                                  }
                       }
@@ -250,7 +249,6 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
                       Some(command) => *command,
                       None => {
                           return {
-                                     error!("Failed reading file while reading comment!");
                                      Err(ErrorKind::LibParseError.into())
                                  }
                       }

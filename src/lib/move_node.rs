@@ -80,12 +80,16 @@ impl FromStr for MoveIndex {
 
 pub struct MoveGraph {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
+    pub marked_for_branch: Vec<NodeIndex>,
 }
 
 
 impl MoveGraph {
     pub fn new() -> MoveGraph {
-        MoveGraph { graph: daggy::Dag::with_capacity(255, 255) }
+        MoveGraph {
+            graph: daggy::Dag::with_capacity(255, 255),
+            marked_for_branch: vec![],
+        }
     }
 
     pub fn new_root(&mut self, marker: BoardMarker) -> MoveIndex {
@@ -94,6 +98,7 @@ impl MoveGraph {
     pub fn add_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
         MoveIndex::new(self.graph.add_child(parent.node_index, 0, marker))
     }
+    // Mark as deprecated
     pub fn get_marker(&self, node: MoveIndex) -> Option<&BoardMarker> {
         self.graph.node_weight(node.node_index)
     }
@@ -149,6 +154,21 @@ impl MoveGraph {
         result
     }
 
+    /// Gives the length to travel to root.
+    pub fn length_to_root(&self, node: MoveIndex) -> usize {
+        let mut parent: Option<MoveIndex> = self.get_parent(node);
+        if parent.is_none() {
+            return 0;
+        };
+        let mut length = 1;
+        while let Some(new_parent) = parent {
+            length += 1;
+            parent = self.get_parent(new_parent);
+        }
+        length
+    }
+
+
     /// Returns the board as it would look like when end_node was played.
     pub fn as_board(&self, end_node: MoveIndex) -> Result<Board> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
@@ -166,10 +186,10 @@ impl MoveGraph {
         println!("{:?}", board.get(board.last_move.unwrap()).unwrap().comment);
         Ok(board)
     }
-    /// Move down in the tree until there is a branch, i.e multiple choices for the next move.
+    /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
     ///
     /// Returns the children that were walked  and the children that caused the branch, if any.
-    pub fn down_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
+    pub fn up_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
         // Check if we should wrap the result in an option.
         let mut branch_decendants: Vec<MoveIndex> = Vec::new();
         let mut children = self.get_children(node);
@@ -179,24 +199,29 @@ impl MoveGraph {
         }
         (branch_decendants, children)
     }
-    /// Move up in tree until there is a branch, i.e move has multiple siblings.
+    /// Move down in tree until there is a branch, i.e move has multiple children.
     ///
-    /// Returns the nodes that were walked (last entry is the branching node) and the children to
-    /// the branching node.
-    pub fn up_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
+    /// Returns the branching node, if any.
+    pub fn down_to_branch(&self, node: MoveIndex) -> Option<MoveIndex> {
         let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
         let mut parent: Option<MoveIndex> = self.get_parent(node);
 
-        // Ehm... FIXME: Not sure if this is right. We want to go up to branch, even if it is close.
+        // Ehm... FIXME: Not sure if this is right. We want to go down to branch, even if it is close.
         let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
         while parent.is_some() && siblings.len() == 1 {
+            println!("Looked at {:?}", parent);
+            if self.marked_for_branch.iter().any(|m| m == &parent.unwrap().node_index) {
+                break;
+            }
             // If it is a lonechild len of siblings will be 1.
             let parentunw: MoveIndex = parent.unwrap(); // Safe as parent must be some for this code to run.
             branch_ancestors.push(parentunw); // Same as in fn down_to_branch, FIXME
             parent = self.get_parent(parentunw);
             siblings = self.get_siblings(parentunw);
+            // If a node is marked as a branch then it is also a branch.
+            // FIXME: Is this correct?
         }
-        (branch_ancestors, siblings)
+        parent
     }
     /// Change the move at **node**
     ///
@@ -213,6 +238,10 @@ impl MoveGraph {
             marker.set_pos(&point);
         }
         Ok(())
+    }
+
+    pub fn mark_for_branch(&mut self, node: MoveIndex) {
+        self.marked_for_branch.push(node.node_index);
     }
 }
 

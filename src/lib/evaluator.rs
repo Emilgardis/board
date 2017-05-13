@@ -141,7 +141,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             'right: for i in marker.point.x + 1..board.boardsize + 1 {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
-                        debug!("\tright:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push((i - marker.point.x) as i8);
                         } else {
@@ -156,7 +155,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             'left: for i in (0..marker.point.x + 1).rev() {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
-                        debug!("\tleft:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(((i as i8) - marker.point.x as i8));
                         } else {
@@ -175,7 +173,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             'down: for i in marker.point.y + 1..board.boardsize + 1 {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
-                        debug!("\tdown:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push((i - marker.point.y) as i8);
                         } else {
@@ -190,7 +187,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             'up: for i in (0..marker.point.y).rev() {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
-                        debug!("\tup:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(((i as i8) - marker.point.y as i8));
                         } else {
@@ -209,7 +205,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             'diag_down: for i in 1..board.boardsize + 1 {
                 match board.getxy(marker.point.x + i, marker.point.y + i) {
                     Some(other_marker) => {
-                        debug!("\tdiag_down:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(i as i8);
                         } else {
@@ -225,7 +220,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 match board.get_i32xy((marker.point.x as i32) - (i as i32),
                                       (marker.point.y as i32) - (i as i32)) {
                     Some(other_marker) => {
-                        debug!("\tdiag_up:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
                         } else {
@@ -245,7 +239,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 match board.get_i32xy((marker.point.x as i32) - (i as i32),
                                       (marker.point.y + i) as i32) {
                     Some(other_marker) => {
-                        debug!("\tdiag_down:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(i as i8);
                         } else {
@@ -261,7 +254,6 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 match board.get_i32xy((marker.point.x + i) as i32,
                                       (marker.point.y as i32) - (i as i32)) {
                     Some(other_marker) => {
-                        debug!("\tdiag_up:{:?}", other_marker);
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
                         } else {

@@ -41,7 +41,7 @@ impl fmt::Display for Stone {
     }
 }
 /// A coordinate located at (`x`, `y`)
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy)]
 pub struct Point {
     /// Whether the point is outside the board, ie a null point.
     pub is_null: bool,
@@ -49,6 +49,18 @@ pub struct Point {
     pub y: u32,
 }
 
+impl fmt::Debug for Point {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if !self.is_null {
+            write!(f,
+                   "[{:>2}, {:>2}]",
+                   ((self.x as u8 + 65u8) as char),
+                   15 - self.y)
+        } else {
+            write!(f, "None")
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct BoardText;
