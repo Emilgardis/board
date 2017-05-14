@@ -7,6 +7,7 @@ use move_node::{MoveGraph, MoveIndex};
 
 pub enum Version {
     V30,
+    V34,
     _extended, // Reserve right to extend enum
 }
 
@@ -97,7 +98,10 @@ pub fn parse_lib(file_u8: Vec<u8>) -> Result<MoveGraph> {
     let (header, file) = file_u8.split_at(20);
     match validate_lib(header)? {
         Version::V30 => {
-            parse_v30(file)
+            parse_v3x(file, Version::V30)
+        }
+        Version::V34 => {
+            parse_v3x(file, Version::V34)
         }
         _ => unimplemented!(),
     }
@@ -111,7 +115,10 @@ pub fn validate_lib(header: &[u8]) -> Result<Version> {
                 (3, 0) => {
                     Ok(Version::V30)
                 }
-                _ =>bail!(ErrorKind::VersionNotSupported),
+                (3, 4) => {
+                    Ok(Version::V34)
+                }
+                (majv, minv) =>bail!(ErrorKind::VersionNotSupported(majv, minv)),
             }
          }
         _ => bail!(ErrorKind::NotSupported),
@@ -122,13 +129,13 @@ pub fn byte_to_point(byte: &u8) -> Result<Point> {
     Ok(Point::new(
         (match byte.checked_sub(1) {
             Some(value) => value,
-            None => return Err("Underflowed position".into())
+            None => bail!("Underflowed position")
         } & 0x0f) as u32,
         (byte >> 4) as u32
     ))
 }
 
-fn parse_v30(file: &[u8]) -> Result<MoveGraph> {
+fn parse_v3x(file: &[u8], version: Version) -> Result<MoveGraph> {
     let mut graph = MoveGraph::new();
     let mut prev_index: Option<MoveIndex> = None;
     let mut cur_index: Option<MoveIndex> = None;
@@ -137,25 +144,62 @@ fn parse_v30(file: &[u8]) -> Result<MoveGraph> {
     if iter.peek().map(|u| *u) == Some(&0x00) {
         // No move start, ignore.
         // TODO: Is this valid?
-        iter.next();
+        //iter.next();
     }
     // It should just work to do this sequentially and use move_graph functions, let's try that
     while iter.peek().is_some() {
         let mut cur_marker: Option<BoardMarker> = None;
         let byte = iter.next().unwrap();
+        if iter.peek().is_none() && byte == &0x0a {
+            // This is really wierd and shouldn't happen, will have to investigate
+            break;
+        }
         let command = Command(*iter.next().ok_or_else(|| "Expected a command byte, got nothing")?);
-        let point = byte_to_point(byte)?;
-        println!("Point: {:?} Command: {:?} Previous Index: {:?}", point, command.get_all(), cur_index);
-        cur_marker = Some(BoardMarker::new(point, Stone::Black)); // First stone is black.
+        let point = if let Ok(point) = byte_to_point(byte) {
+            point 
+        } else {
+            Point::null()
+        };
+        println!("Point: {:?} Command: ({:x}) {:?} Previous Index: {:?}", point, command.0, command.get_all(), cur_index);
+        let stone = if cur_index.is_some() {
+            if graph.moves_to_root(cur_index.unwrap()) % 2 == 1 {
+                Stone::Black
+            } else {
+                Stone::White
+            }
+        } else {
+            Stone::Black
+        };
 
+        
+        cur_marker = Some(BoardMarker::new(point, stone));
+        if command.is_comment() {
+            println!("Parsing comment");
+            // Move into functon?
+            {
+                let mut title = Vec::new();
+            let mut comment = Vec::new();
+
+            while iter.peek().ok_or_else(|| "File ended while parsing title")? != &&0x00 {
+                title.push(*iter.next().unwrap())
+            }
+            while iter.peek().ok_or_else(|| "File ended while parsing comment")? != &&0x00 {
+                comment.push(*iter.next().unwrap())
+            }
+            // Marker has to be something, consider wrapping entirety in if let.
+            cur_marker.as_mut().map(|mut m| m.set_comment(format!("Title: {}, Comment: {}",
+                     str::from_utf8(title.as_slice()).unwrap_or("Failed to parse title!"),
+                     str::from_utf8(comment.as_slice()).unwrap_or("Failed to parse comment!"))));
+            }
+            iter.next(); // Skip the 0x00
+        }
         if cur_index.is_none() {
             prev_index = cur_index;
             cur_index = Some(graph.new_root(cur_marker.clone().unwrap()));
             cur_root = cur_index;
         } else if !(command.is_down() && command.is_right()){
             prev_index = cur_index;
-            cur_index = Some(graph.add_move(cur_index.unwrap(), cur_marker.clone().unwrap()));
-            
+            cur_index = Some(graph.add_move(cur_index.unwrap(), cur_marker.clone().unwrap())); 
         }
         if command.is_right() && command.is_down() {
             //println!("Popped markeds");
@@ -168,11 +212,19 @@ fn parse_v30(file: &[u8]) -> Result<MoveGraph> {
             if command.is_right() {
                 prev_index = None;
                 cur_index = graph.down_to_branch(cur_index.unwrap());
-                println!("Branching down to, res: {:?}", cur_index.unwrap());
+                println!("Branching down to, res: {:?}", cur_index);
             }
             if command.is_down() {
                 println!("Marking {:?} as branch.", prev_index.unwrap_or(cur_root.unwrap()));
                 graph.mark_for_branch(prev_index.unwrap_or(cur_root.unwrap()));
+            }
+        }
+
+        if command.is_no_move() {
+            if let Some(byte) = iter.next() {
+                if byte != &0x00 {
+                    bail!("Expected 0x00, got 0x{:x} while skiping for no-move",byte);
+                }
             }
         }
 

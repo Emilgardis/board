@@ -4,7 +4,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::iter::FromIterator;
 use std::char;
-
+use errors::*;
 /// Enum for `Stone`,
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Stone {
@@ -118,10 +118,14 @@ impl fmt::Display for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f,
                "{}",
-               match self.color {
-                   Stone::Empty => ".",
-                   Stone::White => "O",
-                   Stone::Black => "X",
+               if self.point.is_null {
+                   "."
+               } else {
+                   match self.color {
+                       Stone::Empty => ".",
+                       Stone::White => "O",
+                       Stone::Black => "X",
+                   }
                })
     }
 }
@@ -133,6 +137,14 @@ impl Point {
             is_null: false,
             x: x,
             y: y,
+        }
+    }
+
+    pub fn null() -> Point {
+        Point {
+            is_null: true,
+            x: 0,
+            y: 0,
         }
     }
     /// Converts a 1D coord to a `Point`
@@ -263,8 +275,11 @@ impl Board {
         self.board[pos.to_1d(self.boardsize) as usize].color = color;
     }
 
-    pub fn set(&mut self, marker: BoardMarker) {
-        self.set_point(marker.point, marker.color);
+    pub fn set(&mut self, mut marker: BoardMarker) -> Result<()> {
+        let idx = marker.point.to_1d(self.boardsize) as usize;
+        let mut mut_marker = self.board.get_mut(idx).ok_or_else(|| format!("Couldn't get index {} in board array", idx))?;
+        mut_marker = &mut marker;
+        Ok(())
     }
 }
 

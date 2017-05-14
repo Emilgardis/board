@@ -15,8 +15,9 @@ error_chain! {
         PosParseError {
             description("unsuccessful parsing of file in pos format")
         }
-        VersionNotSupported {
-            description("Version not supported")
+        VersionNotSupported(majv: u8, minv: u8) {
+            display("Version not supported")
+            description("Version {}.{} is not supported")
         }
         NotSupported {
             description("File is not currently supported")

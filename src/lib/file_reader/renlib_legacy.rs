@@ -10,10 +10,10 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
     //::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
     let header: Vec<u8> = file_u8.drain(0..20).collect();
     // let Game = unimplemented!();
-    let major_file_version = header[8] as u32;
-    let minor_file_version = header[9] as u32;
+    let major_file_version = header[8] as u8;
+    let minor_file_version = header[9] as u8;
     if major_file_version != 3 {
-        return Err(ErrorKind::VersionNotSupported.into());
+        return Err(ErrorKind::VersionNotSupported(major_file_version, minor_file_version).into());
     }
     println!("Opened RenLib file, v.{}.{:>02}",
              major_file_version,

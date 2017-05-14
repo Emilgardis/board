@@ -7,6 +7,7 @@ extern crate rustyline;
 
 use clap::{App, Arg};
 use renju::errors::*;
+use error_chain::ChainedError;
 
 use std::path::Path;
 use std::fs::OpenOptions;
@@ -68,7 +69,6 @@ fn run() -> Result<i32> {
                             Ok(board) => {
                                 println!("{}", board.board);
                                 if let Some(last_point) = board.last_move {
-                                    // FIXME: Comments do not work, file_reader:L419
                                     match board.get(last_point) {
                                         Some(&board_logic::BoardMarker {
                                                   comment: ref comment_opt, ..
@@ -81,7 +81,7 @@ fn run() -> Result<i32> {
                                     }
                                 }
                             }
-                            Err(e) => println!("{}", e),
+                            Err(e) => println!("{}", e.display()),
                         }
                     }
                     Err(e) => {

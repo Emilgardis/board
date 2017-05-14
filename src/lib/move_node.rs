@@ -154,13 +154,13 @@ impl MoveGraph {
         result
     }
 
-    /// Gives the length to travel to root.
-    pub fn length_to_root(&self, node: MoveIndex) -> usize {
+    /// Gives the amount of moves to travel to root.
+    pub fn moves_to_root(&self, node: MoveIndex) -> usize {
         let mut parent: Option<MoveIndex> = self.get_parent(node);
         if parent.is_none() {
             return 0;
         };
-        let mut length = 1;
+        let mut length = 0;
         while let Some(new_parent) = parent {
             length += 1;
             parent = self.get_parent(new_parent);
@@ -180,10 +180,9 @@ impl MoveGraph {
                           None => {
                               return Err(format!("Couldn't get move at: {:?}", index_marker).into())
                           }
-                      });
+                      }).chain_err(|| "While making board")?;
         }
         board.last_move = self.get_move(end_node).unwrap().point.into();
-        println!("{:?}", board.get(board.last_move.unwrap()).unwrap().comment);
         Ok(board)
     }
     /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
@@ -209,7 +208,6 @@ impl MoveGraph {
         // Ehm... FIXME: Not sure if this is right. We want to go down to branch, even if it is close.
         let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
         while parent.is_some() && siblings.len() == 1 {
-            println!("Looked at {:?}", parent);
             if self.marked_for_branch.iter().any(|m| m == &parent.unwrap().node_index) {
                 break;
             }
