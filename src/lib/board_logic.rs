@@ -275,10 +275,10 @@ impl Board {
         self.board[pos.to_1d(self.boardsize) as usize].color = color;
     }
 
-    pub fn set(&mut self, mut marker: BoardMarker) -> Result<()> {
+    pub fn set(&mut self, marker: BoardMarker) -> Result<()> {
         let idx = marker.point.to_1d(self.boardsize) as usize;
-        let mut mut_marker = self.board.get_mut(idx).ok_or_else(|| format!("Couldn't get index {} in board array", idx))?;
-        mut_marker = &mut marker;
+        let mut_marker = self.board.get_mut(idx).ok_or_else(|| format!("Couldn't get index {} in board array", idx))?;
+        *mut_marker = marker;
         Ok(())
     }
 }

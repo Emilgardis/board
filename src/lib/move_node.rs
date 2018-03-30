@@ -121,8 +121,8 @@ impl MoveGraph {
 
     pub fn get_parent(&self, child: MoveIndex) -> Option<MoveIndex> {
         let mut parent = self.graph.parents(child.node_index);
-        let result = parent.next(&self.graph);
-        if parent.next(&self.graph) != None {
+        let result = parent.walk_next(&self.graph);
+        if parent.walk_next(&self.graph) != None {
             panic!("Error, shame on me! A MoveNode cannot have two parents!") //FIXME: This error message sucks.
         } else {
             MoveIndex::from_option(result)
@@ -182,7 +182,9 @@ impl MoveGraph {
                           }
                       }).chain_err(|| "While making board")?;
         }
+        println!("board is = {}", board.board);
         board.last_move = self.get_move(end_node).unwrap().point.into();
+        println!("board is = {}", board.board);
         Ok(board)
     }
     /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
@@ -276,11 +278,10 @@ fn does_it_work() {
     // for i in
     println!("{:?}", graph);
     println!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
-    let branched_down: (Vec<MoveIndex>, Vec<MoveIndex>) = graph.down_to_branch(a_1_2);
-    println!("Moving down on {:?} gives: end = {:?}, remaining = {:?}",
+    let branched_down = graph.down_to_branch(a_1_2);
+    println!("Moving down on {:?} gives: end = {:?}",
              a_1_2,
-             branched_down.0,
-             branched_down.1);
+             branched_down);
     println!("Board from a_1_2_1_2\n{}",
              graph.as_board(a_1_2_1_2).unwrap().board);
     // let branched_up = graph.up_to_branch()

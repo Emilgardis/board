@@ -20,8 +20,8 @@ path = "src/bin/main.rs"
 debug = true
 
 [dependencies]
-slog = "2"
-slog-stdlog = "2"
+slog = "*"
+slog-stdlog = "*"
 daggy = "*"
 num = "*"
 nom = "*"

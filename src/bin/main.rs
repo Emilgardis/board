@@ -81,11 +81,11 @@ fn run() -> Result<i32> {
                                     }
                                 }
                             }
-                            Err(e) => println!("{}", e.display()),
+                            Err(e) => println!("{}", e.display_chain()),
                         }
                     }
                     Err(e) => {
-                        println!("{}", e);
+                        println!("{}", e.display_chain());
                     }
                 }
             }

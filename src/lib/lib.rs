@@ -1,4 +1,4 @@
-#![feature(question_mark, slice_patterns)]
+#![feature(slice_patterns)]
 pub mod board_logic;
 pub mod evaluator;
 pub mod file_reader;
