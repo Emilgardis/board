@@ -1,5 +1,5 @@
 use crate::board_logic::{Board, BoardMarker, Point};
-use crate::errors::*;
+use crate::errors::ParseError;
 use daggy;
 use daggy::Walker;
 use std::fmt;
@@ -41,15 +41,10 @@ impl MoveIndex {
     }
 
     pub fn from_option(edge_node_option: Option<(EdgeIndex, NodeIndex)>) -> Option<MoveIndex> {
-        match edge_node_option {
-            Some(edge_node) => {
-                Some(MoveIndex {
+        edge_node_option.map(|edge_node| MoveIndex {
                          node_index: edge_node.1,
                          edge_index: Some(edge_node.0),
                      })
-            }
-            None => None,
-        }
     }
 }
 
@@ -64,16 +59,16 @@ impl fmt::Debug for MoveIndex {
 }
 
 impl FromStr for MoveIndex {
-    type Err = Error;
+    type Err = ParseError;
 
-    fn from_str(s: &str) -> Result<MoveIndex> {
+    fn from_str(s: &str) -> Result<MoveIndex, ParseError> {
         let (n, e) = {
-            let mut t = s.splitn(2, " ");
+            let mut t = s.splitn(2, ' ');
             (t.next(), t.next())
         };
         match e {
             None => Ok(MoveIndex::new_node(n.unwrap().parse::<BigU>()?.into())),
-            Some(_e) => return Err("Edges not currently supported for parsing.".into()),
+            Some(_e) => Err(ParseError::Other("Edges not currently supported for parsing.".to_string())),
         }
     }
 }
@@ -132,8 +127,8 @@ impl MoveGraph {
     pub fn get_siblings(&self, child: MoveIndex) -> Vec<MoveIndex> {
         let parent_opt = self.get_parent(child);
         match parent_opt {
-            Some(parent) => return self.get_children(parent), // Not ideal, should not really return the original child.
-            None => return Vec::new(),
+            Some(parent) => self.get_children(parent), // Not ideal, should not really return the original child.
+            None => Vec::new(),
         }
     }
     // Convenience methods, like set comment, set pos etc. Also walk down node until multiple
@@ -170,7 +165,7 @@ impl MoveGraph {
 
 
     /// Returns the board as it would look like when end_node was played.
-    pub fn as_board(&self, end_node: MoveIndex) -> Result<Board> {
+    pub fn as_board(&self, end_node: MoveIndex) -> Result<Board, ParseError> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
         move_list.push(end_node);
         let mut board: Board = Board::new(15);
@@ -178,9 +173,9 @@ impl MoveGraph {
             board.set(match self.get_move(index_marker) {
                           Some(val) => val.clone(),
                           None => {
-                              return Err(format!("Couldn't get move at: {:?}", index_marker).into())
+                              return Err(ParseError::Other(format!("Couldn't get move at: {:?}", index_marker)))
                           }
-                      }).chain_err(|| "While making board")?;
+                      })?;
         }
         println!("board is = {}", board.board);
         board.last_move = self.get_move(end_node).unwrap().point.into();
@@ -195,7 +190,7 @@ impl MoveGraph {
         let mut branch_decendants: Vec<MoveIndex> = Vec::new();
         let mut children = self.get_children(node);
         while children.len() == 1 {
-            branch_decendants.push(children[0].clone()); // Do we need to clone? FIXME
+            branch_decendants.push(children[0]); // Do we need to clone? FIXME
             children = self.get_children(children[0]);
         }
         (branch_decendants, children)
@@ -226,13 +221,13 @@ impl MoveGraph {
     /// Change the move at **node**
     ///
     /// Returns Ok(()) if success
-    pub fn set_pos(&mut self, node: MoveIndex, point: Point) -> Result<()> {
+    pub fn set_pos(&mut self, node: MoveIndex, point: Point) -> Result<(), ParseError> {
         {
             let marker: &mut BoardMarker = match self.get_move_mut(node) {
                 Some(val) => val,
                 None => {
-                    return Err(format!("Couldn't set position: {:?} at node {:?}", point, node)
-                                   .into())
+                    return Err(ParseError::Other(format!("Couldn't set position: {:?} at node {:?}", point, node)
+                    ))
                 }
             };
             marker.set_pos(&point);
@@ -245,9 +240,15 @@ impl MoveGraph {
     }
 }
 
+impl Default for MoveGraph {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Debug for MoveGraph {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", daggy::petgraph::dot::Dot::with_config(self.graph.graph(), &[/*daggy::petgraph::dot::Config::EdgeIndexLabel,daggy::petgraph::dot::Config::NodeIndexLabel*/]));
+        write!(f, "{:?}", daggy::petgraph::dot::Dot::with_config(self.graph.graph(), &[/*daggy::petgraph::dot::Config::EdgeIndexLabel,daggy::petgraph::dot::Config::NodeIndexLabel*/]))?;
         Ok(())
     }
 }

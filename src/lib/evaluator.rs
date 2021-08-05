@@ -1,3 +1,4 @@
+#![allow(clippy::result_unit_err)]
 //! This is the evauluator for checking what condition a certain move creates.
 //!
 //! It is either an illegal move, (i.e) black makes a three-three, four-four or an overline. Or it
@@ -24,11 +25,11 @@ pub enum Direction {
 }
 impl Direction {
     pub fn iter() -> Iter<'static, Direction> {
-        static directions: [Direction; 4] = [Direction::Horizontal,
+        static DIRECTIONS: [Direction; 4] = [Direction::Horizontal,
                                              Direction::Diagonal,
                                              Direction::Diagonal,
                                              Direction::AntiDiagonal];
-        directions.iter()
+                                             DIRECTIONS.iter()
     }
 }
 
@@ -79,16 +80,16 @@ pub fn is_five_dir(board: &Board, marker: &BoardMarker, direction: Direction) ->
     match marker.color {
         Stone::White => {
             if length >= 5 {
-                return Ok(true);
+                Ok(true)
             } else {
-                return Ok(false);
+                Ok(false)
             }
         }
         Stone::Black => {
             if length == 5 {
-                return Ok(true);
+                Ok(true)
             } else {
-                return Ok(false);
+                Ok(false)
             }
         }
         _ => unreachable!(),
@@ -106,7 +107,7 @@ pub fn is_five(board: &Board, marker: &BoardMarker) -> Result<bool, ()> {
             Err(_) => return Err(()),
         }
     }
-    return Ok(false);
+    Ok(false)
 }
 
 pub fn is_three_dir(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
@@ -128,7 +129,7 @@ pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
             Err(_) => return Err(()),
         }
     }
-    return Ok(false);
+    Ok(false)
 
 }
 pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<Line, ()> {
@@ -137,16 +138,14 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
     }
     match direction {
         Direction::Horizontal => {
-            let mut line: Line = Line::new(&marker, direction);
+            let mut line: Line = Line::new(marker, direction);
             'right: for i in marker.point.x + 1..board.boardsize + 1 {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push((i - marker.point.x) as i8);
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'right;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'right;
                         }
                     }
                     None => break 'right,
@@ -157,10 +156,8 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push((i as i8) - marker.point.x as i8);
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'left;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'left;
                         }
                     }
                     None => break 'left,
@@ -169,16 +166,14 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             Ok(line)
         }
         Direction::Vertical => {
-            let mut line: Line = Line::new(&marker, direction);
+            let mut line: Line = Line::new(marker, direction);
             'down: for i in marker.point.y + 1..board.boardsize + 1 {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push((i - marker.point.y) as i8);
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'down;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'down;
                         }
                     }
                     None => break 'down,
@@ -189,10 +184,8 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push((i as i8) - marker.point.y as i8);
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'up;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'up;
                         }
                     }
                     None => break 'up,
@@ -201,16 +194,14 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             Ok(line)
         }
         Direction::Diagonal => {
-            let mut line: Line = Line::new(&marker, direction);
+            let mut line: Line = Line::new(marker, direction);
             'diag_down: for i in 1..board.boardsize + 1 {
                 match board.getxy(marker.point.x + i, marker.point.y + i) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(i as i8);
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'diag_down;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'diag_down;
                         }
                     }
                     None => break 'diag_down, // We have hit the border. Don't err, this is expected.
@@ -222,10 +213,8 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'diag_up;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'diag_up;
                         }
                     }
                     None => break 'diag_up,
@@ -234,17 +223,15 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
             Ok(line)
         }
         Direction::AntiDiagonal => {
-            let mut line: Line = Line::new(&marker, direction);
+            let mut line: Line = Line::new(marker, direction);
             'anti_diag_down: for i in 1..board.boardsize + 1 {
                 match board.get_i32xy((marker.point.x as i32) - (i as i32),
                                       (marker.point.y + i) as i32) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(i as i8);
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'anti_diag_down;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'anti_diag_down;
                         }
                     }
                     None => break 'anti_diag_down, // We have hit the border. Don't err, this is expected.
@@ -256,10 +243,8 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
-                        } else {
-                            if other_marker.color == marker.color.opposite() {
-                                break 'anti_diag_up;
-                            }
+                        } else if other_marker.color == marker.color.opposite() {
+                            break 'anti_diag_up;
                         }
                     }
                     None => break 'anti_diag_up,
@@ -301,9 +286,9 @@ mod tests {
             board.set_point(Point::new(x, y + 2), Stone::White);
         }
         println!("\n{}\nChecks,{:?} and {:?}", board.board, &p1, p2);
-        assert_eq!(true,
+        assert!(
                    is_five_dir(&board, &p1, Direction::Horizontal).unwrap());
-        assert_eq!(true,
+        assert!(
                    is_five_dir(&board, &p2, Direction::Horizontal).unwrap());
         //assert_eq!(line(&board, &p1), Ok(Direction::Horizontal));
         // assert_eq!(is_line(&board, &p2).unwrap(), Direction::Horizontal);
@@ -324,8 +309,8 @@ mod tests {
         }
         println!("\n{}\nChecks; {:?} and {:?}", board.board, &p1, p2);
 
-        assert_eq!(true, is_five_dir(&board, &p1, Direction::Vertical).unwrap());
-        assert_eq!(true, is_five_dir(&board, &p2, Direction::Vertical).unwrap());
+        assert!(is_five_dir(&board, &p1, Direction::Vertical).unwrap());
+        assert!(is_five_dir(&board, &p2, Direction::Vertical).unwrap());
         //assert_eq!(is_line(&board, &p1), Ok(Direction::Vertical));
         //assert_eq!(is_line(&board, &p2), Ok(Direction::Vertical));
     }
@@ -336,8 +321,8 @@ mod tests {
         for pos in [2u32 + 7 * 15, 3u32 + 8 * 15, 4u32 + 9 * 15, 5u32 + 10 * 15].iter() {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
-
-        for pos in [9u32 + 0 * 15,
+        #[allow(clippy::identity_op)]
+        for pos in [9u32 /*+ 0 * 15*/,
                     10u32 + 1 * 15,
                     11u32 + 2 * 15,
                     13u32 + 4 * 15]
@@ -349,8 +334,8 @@ mod tests {
 
         println!("\n{}\nChecks; {:?} and {:?}", board.board, &p1, p2);
 
-        assert_eq!(true, is_five_dir(&board, &p1, Direction::Diagonal).unwrap());
-        assert_eq!(true, is_five_dir(&board, &p2, Direction::Diagonal).unwrap());
+        assert!(is_five_dir(&board, &p1, Direction::Diagonal).unwrap());
+        assert!(is_five_dir(&board, &p2, Direction::Diagonal).unwrap());
         //assert_eq!(is_line(&board, &p1), Ok(Direction::Diagonal));
         //assert_eq!(is_line(&board, &p2), Ok(Direction::Diagonal));
     }
@@ -364,7 +349,7 @@ mod tests {
         let p1 = BoardMarker::new(Point::from_1d(2u32 + 10 * 15, 15), Stone::Black);
 
         println!("\n{}\nChecks; {:?}", board.board, &p1);
-        assert_eq!(true,
+        assert!(
                    is_five_dir(&board, &p1, Direction::AntiDiagonal).unwrap());
         //assert_eq!(is_line(&board, &p1), Ok(Direction::AntiDiagonal));
     }

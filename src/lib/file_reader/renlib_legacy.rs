@@ -1,11 +1,11 @@
 //! Legacy ways of hadling renlib, not functional.
 use std::str;
-use crate::errors::*;
 
-use crate::board_logic::{BoardMarker, Stone, Point};
+use crate::board_logic::{BoardMarker, Point, Stone};
+use crate::errors::ParseError;
 use crate::move_node::{MoveGraph, MoveIndex};
 
-pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
+pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
     let mut file_u8 = file_u8;
     //::with_capacity(match file.metadata() { Ok(meta) => meta.len() as usize, Err(err) => return Err(FileErr::OpenError)});
     let header: Vec<u8> = file_u8.drain(0..20).collect();
@@ -13,11 +13,15 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
     let major_file_version = header[8] as u8;
     let minor_file_version = header[9] as u8;
     if major_file_version != 3 {
-        return Err(ErrorKind::VersionNotSupported(major_file_version, minor_file_version).into());
+        return Err(ParseError::VersionNotSupported {
+            majv: major_file_version,
+            minv: minor_file_version,
+        });
     }
-    println!("Opened RenLib file, v.{}.{:>02}",
-             major_file_version,
-             minor_file_version);
+    println!(
+        "Opened RenLib file, v.{}.{:>02}",
+        major_file_version, minor_file_version
+    );
 
     // Here we will want to do everything that is needed.
     // First value is "always" the starting position.
@@ -30,22 +34,25 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
     // If 0x00, then we are adding to branches.
     let mut current_command: u8 = 0x00;
     // println!("{:?}", file_u8);
-    let mut command_iter = file_u8.into_iter().peekable().clone();
+    let mut command_iter = file_u8.into_iter().peekable();
     let mut moves: u32 = 1;
-    let mut multiple_start: u32 = 0;
+    let mut _multiple_start: u32 = 0;
     'main: while command_iter.peek().is_some() {
         let byte: u8 = command_iter.next().unwrap(); // This shouldn't fail.
         println!("\t\tbyte: {:x}", byte);
-        println!("Current byte: 0x{:0>2x}, current_command: 0x{:x}",
-                 byte,
-                 current_command);
+        println!(
+            "Current byte: 0x{:0>2x}, current_command: 0x{:x}",
+            byte, current_command
+        );
         while current_command == 0x57 {
             println!("What is this???");
             {
                 let mut skipped = command_iter.by_ref().take(2);
-                println!("Skipped 0x{:02x}, 0x{:02x}, peek next",
-                         skipped.next().unwrap(),
-                         skipped.next().unwrap());
+                println!(
+                    "Skipped 0x{:02x}, 0x{:02x}, peek next",
+                    skipped.next().unwrap(),
+                    skipped.next().unwrap()
+                );
             }
             println!("Now on {:?}", command_iter.peek());
             command_iter.next();
@@ -55,58 +62,65 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
             // 0x02 is no_move.
             if moves > 1 {
                 // last returns a Option<&T>
-                println!("Checking with: \n\tChildren: {:?}, branches: {:?}",
-                         children,
-                         branches);
+                println!(
+                    "Checking with: \n\tChildren: {:?}, branches: {:?}",
+                    children, branches
+                );
                 moves += 1;
                 let last_child: MoveIndex = match children.last() {
                     Some(val) => {
                         println!("adding move to child:{:?}", val);
-                        val.clone()
+                        *val
                     }
                     None => {
-                        let val = *branches.last().ok_or("Failed reading branches.last()")?;
+                        let val = *branches.last().ok_or_else(|| ParseError::Other("Failed reading branches.last()".to_string()))?;
                         println!("adding move to last branch:{:?}", val);
                         val
                     }
                 };
 
                 // println!("\tAdded to {:?}.", last_child);
-                children.push(graph.add_move(last_child,
-                                             if byte != 0x00 {
-                                                 BoardMarker::new(
+                children.push(graph.add_move(
+                    last_child,
+                    if byte != 0x00 {
+                        BoardMarker::new(
                             Point::new(
                                 (match byte.checked_sub(1) {
                                     Some(value) => value,
-                                    None => return Err("Underflowed position".into())
+                                    None => return Err(ParseError::Other("Underflowed position".to_string())),
                                 } & 0x0f) as u32,
-                                (byte >> 4) as u32),
-                        if moves % 2 == 0 {
-                            Stone::Black
-                        } else {
-                            Stone::White
-                        })
-                                             } else {
-                                                 BoardMarker::new(Point::from_1d(5, 2),
-                                                                  Stone::Empty)
-                                             }));
-                println!("Added {:?}:{:?} to children: {:?}", match children.last() {
-                        Some(last) => graph.get_move(*last).unwrap(),
-                        None => return Err("Couldn't get last child".into()),
+                                (byte >> 4) as u32,
+                            ),
+                            if moves % 2 == 0 {
+                                Stone::Black
+                            } else {
+                                Stone::White
+                            },
+                        )
+                    } else {
+                        BoardMarker::new(Point::from_1d(5, 2), Stone::Empty)
                     },
-                    children.last().unwrap(), children,
+                ));
+                println!(
+                    "Added {:?}:{:?} to children: {:?}",
+                    match children.last() {
+                        Some(last) => graph.get_move(*last).unwrap(),
+                        None => return Err(ParseError::Other("Couldn't get last child".to_string())),
+                    },
+                    children.last().unwrap(),
+                    children,
                 );
                 println!("Stepping forward in command.");
                 current_command = match command_iter.next() {
                     Some(command) => command,
-                    None => return Err("Uanble to get next command".into()),
+                    None => return Err(ParseError::Other("Unable to get next command".to_string())),
                 };
-
             } else {
                 // We are in as root! HACKER!
-                println!("In root, should be empty: \n\tChildren: {:?}, branches: {:?}",
-                         children,
-                         branches);
+                println!(
+                    "In root, should be empty: \n\tChildren: {:?}, branches: {:?}",
+                    children, branches
+                );
                 if byte == 0x00 {
                     // we do not really care, we always support these files.
                     println!("Skipped {:?}", command_iter.next());
@@ -115,36 +129,38 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
                     // return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
                 }
                 moves += 1;
-                if children.len() > 0 {
-                    let move_ind: MoveIndex =
-                        graph.add_move(*children.last().unwrap(),
-                                       BoardMarker::new(Point::new((byte - 1 & 0x0f) as u32,
-                                                                   (byte >> 4) as u32),
-                                                        if moves % 2 == 0 {
-                                                            Stone::Black
-                                                        } else {
-                                                            Stone::White
-                                                        }));
+                if !children.is_empty() {
+                    let move_ind: MoveIndex = graph.add_move(
+                        *children.last().unwrap(),
+                        BoardMarker::new(
+                            Point::new(((byte - 1) & 0x0f) as u32, (byte >> 4) as u32),
+                            if moves % 2 == 0 {
+                                Stone::Black
+                            } else {
+                                Stone::White
+                            },
+                        ),
+                    );
                     children.push(move_ind);
                 } else {
-                    let move_ind: MoveIndex =
-                        graph.new_root(BoardMarker::new(Point::new((byte - 1 & 0x0f) as u32,
-                                                                   (byte >> 4) as u32),
-                                                        Stone::Black));
+                    let move_ind: MoveIndex = graph.new_root(BoardMarker::new(
+                        Point::new(((byte - 1) & 0x0f) as u32, (byte >> 4) as u32),
+                        Stone::Black,
+                    ));
                     children.push(move_ind);
                 }
                 current_command = match command_iter.next() {
                     Some(command) => command,
                     None => {
                         if command_iter.peek().is_some() {
-                            return Err("No command is next".into());
+                            return Err(ParseError::Other("No command is next".to_string()));
                         }
                         break 'main;
                     }
                 };
                 if current_command & 0x80 == 0x80 {
                     // Multiple start, this may be wrong.
-                    multiple_start = 1;
+                    _multiple_start = 1;
                 }
             }
         }
@@ -163,7 +179,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
                 None
             };
             children = match branches.last() {
-                Some(val) => vec![val.clone()],
+                Some(val) => vec![*val],
                 None => vec![],
             };
             children.extend(lost_child);
@@ -174,11 +190,11 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
                 Some(child) => 1 + graph.down_to_root(*child).len() as u32,
                 None => 1,
             };
-            println!("back to subtree root, poping branches.\n\tChildren: {:?}, branches: \
+            println!(
+                "back to subtree root, poping branches.\n\tChildren: {:?}, branches: \
                     {:?}. Moves: {}",
-                     children,
-                     branches,
-                     moves);
+                children, branches, moves
+            );
         }
         if current_command & 0x80 == 0x80 {
             // if we are saying: This node has siblings!.
@@ -191,11 +207,10 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
             if children_len <= 2 {
                 // Not sure why.
                 // println!("Children that error me! {:?}", children);
-                // return Err(ErrorKind::LibParseError.into());
+                // return Err(ParseError::LibParseError.into());
                 // FIXME: May be wrong.
                 if moves < 2 {
-                    multiple_start = 1;
-
+                    _multiple_start = 1;
                 }
 
                 continue 'main;
@@ -214,17 +229,18 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
             //    Some(last) => last.clone(),
             //    None => {
             //        error!("Failed reading children.last()!");
-            //        return Err(ErrorKind::LibParseError.into());
+            //        return Err(ParseError::LibParseError.into());
             //    }
             // ; // Not sure if need clone.
             // branches.push(children[children_len - 2]);
             // children = vec![children[children_len - 2]];
             // println!("--NEW-- Children: {:?}", children);
             // children.push(lost_child);
-            println!("New subtree, adding last child to branches.\n\tChildren: \
+            println!(
+                "New subtree, adding last child to branches.\n\tChildren: \
                     {:?}, branches: {:?}",
-                     children,
-                     branches);
+                children, branches
+            );
         }
 
         if current_command & 0x08 == 0x08 {
@@ -236,50 +252,45 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
             // TODO: Consider using
             // http://bluss.github.io/rust-itertools/doc/itertools/trait.Itertools.html#method.take_while_ref
             while match command_iter.peek() {
-                      Some(command) => *command,
-                      None => {
-                          return {
-                                     Err(ErrorKind::LibParseError.into())
-                                 }
-                      }
-                  } != 0x00 {
+                Some(command) => *command,
+                None => return Err(ParseError::LibParseError),
+            } != 0x00
+            {
                 title.push(command_iter.next().unwrap()); // This should be safe.
             }
             while match command_iter.peek() {
-                      Some(command) => *command,
-                      None => {
-                          return {
-                                     Err(ErrorKind::LibParseError.into())
-                                 }
-                      }
-                  } != 0x00 {
+                Some(command) => *command,
+                None => return Err(ParseError::LibParseError),
+            } != 0x00
+            {
                 comment.push(command_iter.next().unwrap()); // This should be safe.
             }
             command_iter.next(); // Skip the zero.
 
-            println!("\tTitle: {}, Comment: {}",
-                     str::from_utf8(&title).unwrap_or("Failed to parse title!"),
-                     str::from_utf8(&comment).unwrap_or("Failed to parse comment!"));
-            match children.last() { // FIXME: Doesn't work in main
+            println!(
+                "\tTitle: {}, Comment: {}",
+                str::from_utf8(&title).unwrap_or("Failed to parse title!"),
+                str::from_utf8(&comment).unwrap_or("Failed to parse comment!")
+            );
+            match children.last() {
+                // FIXME: Doesn't work in main
                 Some(last) => {
-                    let marker =
-                        graph
-                            .get_move_mut(*last)
-                            .expect("FIXME -- Child was added to vec but not to graph.");
+                    let marker = graph
+                        .get_move_mut(*last)
+                        .expect("FIXME -- Child was added to vec but not to graph.");
                     println!("Setting comment on {:?}", marker);
-                    marker.set_comment(format!("Title: {}, Comment: {}",
-                     str::from_utf8(&title).unwrap_or("Failed to parse title!"),
-                     str::from_utf8(&comment).unwrap_or("Failed to parse comment!")));
+                    marker.set_comment(format!(
+                        "Title: {}, Comment: {}",
+                        str::from_utf8(&title).unwrap_or("Failed to parse title!"),
+                        str::from_utf8(&comment).unwrap_or("Failed to parse comment!")
+                    ));
                     println!("Comment set as {:?}", marker.comment);
-
                 }
-                None => bail!("No last child found :/"),
-
+                None => panic!("No last child found :/"),
             }
 
             // command_iter.skip(title.len() + comment.len() +2);
         }
     }
     Ok(graph)
-
 }

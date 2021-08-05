@@ -1,7 +1,6 @@
 //! Used for reading files.
 //!
 //! Currently only supports _.pos_ and _.lib_ (RenLib) files of version 3.04+.
-#![feature(io)]
 
 
 use std::io::prelude::*;
@@ -129,7 +128,7 @@ pub enum FileErr {
     ParseError,
 }
 
-pub fn open_file(path: &Path) -> Result<MoveGraph> {
+pub fn open_file(path: &Path) -> Result<MoveGraph, ParseError> {
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(&path)?;
@@ -142,7 +141,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph> {
                 // First value should always be the number of moves.
                 sequence.push(BoardMarker::new(
                         Point::from_1d(
-                            pos.chain_err(|| "Couldn't get position").chain_err(|| ErrorKind::PosParseError)? as u32, 15),
+                            pos? as u32, 15),
                         if index % 2 == 0 {Stone::Black} else {Stone::White}));
             }
             let mut root = MoveGraph::new();
@@ -155,14 +154,16 @@ pub fn open_file(path: &Path) -> Result<MoveGraph> {
         Some(FileType::Lib) => {
             let mut file_u8: Vec<u8> = Vec::new();
             for byte in file.bytes() {
-                file_u8.push(byte.chain_err(|| "while loading file")?)
+                file_u8.push(byte?)
             }
-            renlib::parse_lib(file_u8).chain_err(|| ErrorKind::LibParseError)
+            renlib::parse_lib(file_u8)
         }
-        _ => Err(ErrorKind::NotSupported.into()),
+        _ => Err(ParseError::NotSupported),
     }
 }
-pub fn open_file_legacy(path: &Path) -> Result<MoveGraph> {
+
+
+pub fn open_file_legacy(path: &Path) -> Result<MoveGraph, ParseError> {
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(&path)?;
@@ -171,11 +172,11 @@ pub fn open_file_legacy(path: &Path) -> Result<MoveGraph> {
         Some(FileType::Lib) => {
             let mut file_u8: Vec<u8> = Vec::new();
             for byte in file.bytes() {
-                file_u8.push(byte.chain_err(|| "while loading file")?)
+                file_u8.push(byte?)
             }
-            self::renlib_legacy::parse_lib_legacy(file_u8).chain_err(|| ErrorKind::LibParseError)
+            self::renlib_legacy::parse_lib_legacy(file_u8)
         }
-        _ => Err(ErrorKind::NotSupported.into()),
+        _ => Err(ParseError::NotSupported),
     }
 }
 

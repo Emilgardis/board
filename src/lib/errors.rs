@@ -1,29 +1,22 @@
 
 
-
-error_chain! {
-     
-    foreign_links {
-        Io(::std::io::Error);
-        ParseInt(::std::num::ParseIntError);
-    }
-
-    errors {
-        LibParseError {
-            description("unsuccessful parsing of file in RenLib format")
-        }
-        PosParseError {
-            description("unsuccessful parsing of file in pos format")
-        }
-        VersionNotSupported(majv: u8, minv: u8) {
-            display("Version not supported")
-            description("Version {}.{} is not supported")
-        }
-        NotSupported {
-            description("File is not currently supported")
-        }
-        MoveIndexParseError {
-            description("Couldn't parse MoveIndex string")
-        }
-    }
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("File is not currently supported")]
+    NotSupported,
+    #[error("Couldn't parse MoveIndex string")]
+    MoveIndexParseError,
+    #[error("Version {majv}.{minv} is not supported")]
+    VersionNotSupported { majv: u8, minv: u8 },
+    #[error("unsuccessful parsing of file in pos format")]
+    PosParseError,
+    #[error("unsuccessful parsing of file in RenLib format")]
+    LibParseError,
+    #[error(transparent)]
+    IoError(#[from] std::io::Error),
+    #[error(transparent)]
+    ParseIntError(#[from] std::num::ParseIntError),
+    #[error("{0}")]
+    Other(String)
 }
+

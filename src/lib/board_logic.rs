@@ -81,18 +81,18 @@ pub struct BoardMarker {
 impl BoardMarker {
     pub fn new(point: Point, color: Stone) -> BoardMarker {
         BoardMarker {
-            point: point,
-            color: color,
+            point,
+            color,
             comment: None,
             board_text: None,
         }
     }
     // Are the following functions needed?
     pub fn set_pos(&mut self, point: &Point) {
-        self.point = point.clone();
+        self.point = *point;
     }
     pub fn set_comment(&mut self, comment: String) {
-        self.comment = if comment.len() > 0 {
+        self.comment = if !comment.is_empty() {
             Some(comment)
         } else {
             None
@@ -135,8 +135,8 @@ impl Point {
     pub fn new(x: u32, y: u32) -> Point {
         Point {
             is_null: false,
-            x: x,
-            y: y,
+            x,
+            y,
         }
     }
 
@@ -150,7 +150,7 @@ impl Point {
     /// Converts a 1D coord to a `Point`
     pub fn from_1d(idx: u32, width: u32) -> Point {
         Point {
-            is_null: if idx >/*=*/ width*width { true } else { false },
+            is_null: idx >/*=*/ width*width,
             x: idx % width,
             y: idx / width,
         }
@@ -184,7 +184,7 @@ impl Deref for BoardArr {
 }
 
 impl DerefMut for BoardArr {
-    fn deref_mut<'a>(&'a mut self) -> &'a mut Vec<BoardMarker> {
+    fn deref_mut(&mut self) -> &mut Vec<BoardMarker> {
         &mut self.0
     }
 }
@@ -202,7 +202,7 @@ impl fmt::Display for BoardArr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Not sure if needed - let vec: Vec<BoardMarker> = *self;
         let mut dy: u32 = 0;
-        let width: u32 = self.last().clone().unwrap().point.y + 1;
+        let width: u32 = self.last().unwrap().point.y + 1;
         write!(f, "15:")?;
         for marker in self.iter() {
             if marker.point.y == dy {
@@ -239,9 +239,9 @@ impl Board {
             .collect();
 
         Board {
-            boardsize: boardsize,
+            boardsize,
             last_move: None,
-            board: board,
+            board,
         }
     }
     /// Sets all `BoardMarker`'s to `Stone::Empty`
@@ -275,9 +275,9 @@ impl Board {
         self.board[pos.to_1d(self.boardsize) as usize].color = color;
     }
 
-    pub fn set(&mut self, marker: BoardMarker) -> Result<()> {
+    pub fn set(&mut self, marker: BoardMarker) -> Result<(), ParseError> {
         let idx = marker.point.to_1d(self.boardsize) as usize;
-        let mut_marker = self.board.get_mut(idx).ok_or_else(|| format!("Couldn't get index {} in board array", idx))?;
+        let mut_marker = self.board.get_mut(idx).ok_or_else(|| ParseError::Other(format!("Couldn't get index {} in board array", idx)))?;
         *mut_marker = marker;
         Ok(())
     }
