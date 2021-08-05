@@ -11,7 +11,7 @@
 //! # Implementation.
 //!
 
-use board_logic::{BoardMarker, Board, Stone};
+use crate::board_logic::{BoardMarker, Board, Stone};
 
 use std::collections::BTreeSet;
 use std::slice::Iter;
@@ -28,7 +28,7 @@ impl Direction {
                                              Direction::Diagonal,
                                              Direction::Diagonal,
                                              Direction::AntiDiagonal];
-        directions.into_iter()
+        directions.iter()
     }
 }
 
@@ -48,7 +48,7 @@ impl Line {
         let mut vec_line: Vec<i8> = line_cpy.iter().cloned().collect();
         // Count the length of the unbroken chain starting from origin (zeroth entry).
         let middle = vec_line.iter().position(|&x| x == 0).unwrap();
-        let mut vecm_line: Vec<i8> = vec_line.split_off(middle);
+        let vecm_line: Vec<i8> = vec_line.split_off(middle);
         vec_line.push(0);
         vec_line.reverse();
         let mut len = 1u8;
@@ -110,7 +110,7 @@ pub fn is_five(board: &Board, marker: &BoardMarker) -> Result<bool, ()> {
 }
 
 pub fn is_three_dir(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
-    let line: Line = match get_line(board, marker, direction) {
+    let _line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
     };
@@ -156,7 +156,7 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
-                            line.push(((i as i8) - marker.point.x as i8));
+                            line.push((i as i8) - marker.point.x as i8);
                         } else {
                             if other_marker.color == marker.color.opposite() {
                                 break 'left;
@@ -188,7 +188,7 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
-                            line.push(((i as i8) - marker.point.y as i8));
+                            line.push((i as i8) - marker.point.y as i8);
                         } else {
                             if other_marker.color == marker.color.opposite() {
                                 break 'up;
@@ -273,7 +273,7 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use board_logic::{Board, BoardMarker, Stone, Point};
+    use crate::board_logic::{Board, BoardMarker, Stone, Point};
 
     #[test]
     #[ignore]

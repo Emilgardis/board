@@ -6,6 +6,7 @@ description = "A WIP game board for renju designed in rust!"
 readme = "README.md"
 license = "MIT"
 publish = false
+edition = "2018"
 
 [lib]
 name = "renju"

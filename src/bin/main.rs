@@ -10,7 +10,7 @@ use renju::errors::*;
 use error_chain::ChainedError;
 
 use std::path::Path;
-use std::fs::OpenOptions;
+
 use std::io::Write;
 use std::env;
 use renju::file_reader::{open_file, open_file_legacy};

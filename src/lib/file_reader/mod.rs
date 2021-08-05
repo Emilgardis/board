@@ -2,17 +2,17 @@
 //!
 //! Currently only supports _.pos_ and _.lib_ (RenLib) files of version 3.04+.
 #![feature(io)]
-use std::io;
-use std::str;
+
+
 use std::io::prelude::*;
 use std::path::Path;
 use std::fs::File;
-use std::error::Error;
-use std::slice::IterMut;
 
-use board_logic::{BoardMarker, Stone, Point};
-use move_node::{MoveGraph, MoveIndex};
-use errors::*;
+
+
+use crate::board_logic::{BoardMarker, Stone, Point};
+use crate::move_node::{MoveGraph, MoveIndex};
+use crate::errors::*;
 
 pub mod renlib;
 mod renlib_legacy;
@@ -130,9 +130,9 @@ pub enum FileErr {
 }
 
 pub fn open_file(path: &Path) -> Result<MoveGraph> {
-    let display = path.display();
+    let _display = path.display();
     let filetype = FileType::new(path);
-    let mut file: File = File::open(&path)?;
+    let file: File = File::open(&path)?;
 
     match filetype { 
         Some(FileType::Pos) => {
@@ -163,9 +163,9 @@ pub fn open_file(path: &Path) -> Result<MoveGraph> {
     }
 }
 pub fn open_file_legacy(path: &Path) -> Result<MoveGraph> {
-    let display = path.display();
+    let _display = path.display();
     let filetype = FileType::new(path);
-    let mut file: File = File::open(&path)?;
+    let file: File = File::open(&path)?;
 
     match filetype { 
         Some(FileType::Lib) => {
@@ -184,13 +184,13 @@ pub fn open_file_legacy(path: &Path) -> Result<MoveGraph> {
 mod tests {
     use super::*;
     use std::path::Path;
-    use board_logic as bl;
-    use move_node as mn;
+    
+    use crate::move_node as mn;
 
     #[test]
     fn open_pos_file() {
         let file = Path::new("examplefiles/example.pos");
-        let mut graph: mn::MoveGraph = match open_file(file) {
+        let graph: mn::MoveGraph = match open_file(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("{:?}", desc),
         };
@@ -199,7 +199,7 @@ mod tests {
     #[test]
     fn open_lib_file() {
         let file = Path::new("examplefiles/lib_documented.lib");
-        let mut graph: mn::MoveGraph = match open_file(file) {
+        let graph: mn::MoveGraph = match open_file(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };

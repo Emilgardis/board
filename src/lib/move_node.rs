@@ -1,9 +1,9 @@
-use board_logic::{Board, BoardMarker, Point};
-use errors::*;
+use crate::board_logic::{Board, BoardMarker, Point};
+use crate::errors::*;
 use daggy;
 use daggy::Walker;
 use std::fmt;
-use num::bigint::BigUint;
+
 use std::str::FromStr;
 
 pub type BigU = usize;
@@ -73,7 +73,7 @@ impl FromStr for MoveIndex {
         };
         match e {
             None => Ok(MoveIndex::new_node(n.unwrap().parse::<BigU>()?.into())),
-            Some(e) => return Err("Edges not currently supported for parsing.".into()),
+            Some(_e) => return Err("Edges not currently supported for parsing.".into()),
         }
     }
 }
@@ -130,7 +130,7 @@ impl MoveGraph {
     }
 
     pub fn get_siblings(&self, child: MoveIndex) -> Vec<MoveIndex> {
-        let mut parent_opt = self.get_parent(child);
+        let parent_opt = self.get_parent(child);
         match parent_opt {
             Some(parent) => return self.get_children(parent), // Not ideal, should not really return the original child.
             None => return Vec::new(),
@@ -228,7 +228,7 @@ impl MoveGraph {
     /// Returns Ok(()) if success
     pub fn set_pos(&mut self, node: MoveIndex, point: Point) -> Result<()> {
         {
-            let mut marker: &mut BoardMarker = match self.get_move_mut(node) {
+            let marker: &mut BoardMarker = match self.get_move_mut(node) {
                 Some(val) => val,
                 None => {
                     return Err(format!("Couldn't set position: {:?} at node {:?}", point, node)
@@ -254,13 +254,13 @@ impl fmt::Debug for MoveGraph {
 
 #[test]
 fn does_it_work() {
-    use board_logic::*;
+    use crate::board_logic::*;
     let mut graph = MoveGraph::new();
     let a = graph.new_root(BoardMarker::new(Point::new(7, 7), Stone::Black));
     let b_1 = BoardMarker::new(Point::new(8, 7), Stone::White);
     let a_1 = graph.add_move(a, b_1.clone());
     let b_2 = BoardMarker::new(Point::new(9, 7), Stone::Black);
-    let a_2 = graph.add_move(a, b_2);
+    let _a_2 = graph.add_move(a, b_2);
     let b_1_1 = BoardMarker::new(Point::new(10, 7), Stone::White);
     let a_1_1 = graph.add_move(a_1, b_1_1);
     let b_1_2 = BoardMarker::new(Point::new(11, 7), Stone::Black);
@@ -268,11 +268,11 @@ fn does_it_work() {
     let b_1_2_1 = BoardMarker::new(Point::new(12, 7), Stone::White);
     let a_1_2_1 = graph.add_move(a_1_2, b_1_2_1);
     let b_1_2_1_1 = BoardMarker::new(Point::new(8, 4), Stone::Black);
-    let a_1_2_1_1 = graph.add_move(a_1_2_1, b_1_2_1_1);
+    let _a_1_2_1_1 = graph.add_move(a_1_2_1, b_1_2_1_1);
     let b_1_2_1_2 = BoardMarker::new(Point::new(7, 4), Stone::Black);
     let a_1_2_1_2 = graph.add_move(a_1_2_1, b_1_2_1_2);
     {
-        let mut a_1_1_b = graph.get_move_mut(a_1_1).unwrap();
+        let a_1_1_b = graph.get_move_mut(a_1_1).unwrap();
         *a_1_1_b = BoardMarker::new(Point::new(14, 14), Stone::White);
     }
     // for i in

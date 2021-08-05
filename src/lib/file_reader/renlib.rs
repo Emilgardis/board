@@ -1,9 +1,9 @@
 //! Functions for handling renlib files.
 use std::str;
-use errors::*;
+use crate::errors::*;
 
-use board_logic::{BoardMarker, Stone, Point};
-use move_node::{MoveGraph, MoveIndex};
+use crate::board_logic::{BoardMarker, Stone, Point};
+use crate::move_node::{MoveGraph, MoveIndex};
 
 pub enum Version {
     V30,
@@ -36,7 +36,7 @@ impl CommandVariant {
             Start => 0x04,
             NoMove => 0x02,
             Extension => 0x01,
-            Mask => 0xFFFF3F,
+            Mask => 63// 0xFFFF3F,
         }
     }
 }
@@ -52,7 +52,7 @@ impl Command {
 
     pub fn get_all(&self) -> Vec<CommandVariant> {
         use self::CommandVariant::*;
-        let mut variants = vec![Down,Right,OldComment,Mark,Comment,Start,NoMove,Extension,Mask];
+        let variants = vec![Down,Right,OldComment,Mark,Comment,Start,NoMove,Extension,Mask];
         variants.into_iter().filter(|variant| self.flag(variant)).collect()
     }
 
@@ -135,7 +135,7 @@ pub fn byte_to_point(byte: &u8) -> Result<Point> {
     ))
 }
 
-fn parse_v3x(file: &[u8], version: Version) -> Result<MoveGraph> {
+fn parse_v3x(file: &[u8], _version: Version) -> Result<MoveGraph> {
     let mut graph = MoveGraph::new();
     let mut prev_index: Option<MoveIndex> = None;
     let mut cur_index: Option<MoveIndex> = None;
@@ -187,7 +187,7 @@ fn parse_v3x(file: &[u8], version: Version) -> Result<MoveGraph> {
                 comment.push(*iter.next().unwrap())
             }
             // Marker has to be something, consider wrapping entirety in if let.
-            cur_marker.as_mut().map(|mut m| m.set_comment(format!("Title: {}, Comment: {}",
+            cur_marker.as_mut().map(|m| m.set_comment(format!("Title: {}, Comment: {}",
                      str::from_utf8(title.as_slice()).unwrap_or("Failed to parse title!"),
                      str::from_utf8(comment.as_slice()).unwrap_or("Failed to parse comment!"))));
             }

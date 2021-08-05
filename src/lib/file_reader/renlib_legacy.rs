@@ -1,9 +1,9 @@
 //! Legacy ways of hadling renlib, not functional.
 use std::str;
-use errors::*;
+use crate::errors::*;
 
-use board_logic::{BoardMarker, Stone, Point};
-use move_node::{MoveGraph, MoveIndex};
+use crate::board_logic::{BoardMarker, Stone, Point};
+use crate::move_node::{MoveGraph, MoveIndex};
 
 pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
     let mut file_u8 = file_u8;
@@ -262,7 +262,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph> {
                      str::from_utf8(&comment).unwrap_or("Failed to parse comment!"));
             match children.last() { // FIXME: Doesn't work in main
                 Some(last) => {
-                    let mut marker =
+                    let marker =
                         graph
                             .get_move_mut(*last)
                             .expect("FIXME -- Child was added to vec but not to graph.");

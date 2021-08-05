@@ -4,7 +4,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use std::iter::FromIterator;
 use std::char;
-use errors::*;
+use crate::errors::*;
 /// Enum for `Stone`,
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Stone {
