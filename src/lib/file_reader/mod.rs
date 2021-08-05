@@ -135,7 +135,7 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, ParseError> {
 
     match filetype { 
         Some(FileType::Pos) => {
-            println!("Opening pos file. {:?}", path);
+            tracing::info!("Opening pos file. {:?}", path);
             let mut sequence: Vec<BoardMarker> = Vec::new();
             for (index, pos) in file.bytes().skip(1).enumerate() {
                 // First value should always be the number of moves.
@@ -195,7 +195,7 @@ mod tests {
             Ok(gr) => gr,
             Err(desc) => panic!("{:?}", desc),
         };
-        println!("\n{:?}", graph);
+        tracing::info!("\n{:?}", graph);
     }
     #[test]
     fn open_lib_file() {
@@ -204,7 +204,7 @@ mod tests {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };
-        println!("\n{:?}", graph);
+        tracing::info!("\n{:?}", graph);
         // panic!("Intended!");
     }
 }

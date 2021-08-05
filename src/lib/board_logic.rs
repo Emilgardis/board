@@ -307,8 +307,8 @@ mod tests {
         let p = Point::new(3, 2);
         board.set_point(p, Stone::Black);
         assert_eq!(board.get(p).unwrap().color, Stone::Black);
-        // println!("{:?}", board);
-        println!("Board\n{}", board.board);
+        // tracing::info!("{:?}", board);
+        tracing::info!("Board\n{}", board.board);
     }
 
     #[test]
@@ -316,9 +316,9 @@ mod tests {
         let mut board = Board::new(15);
         let p = Point::new(7, 7);
         board.set_point(p, Stone::White);
-        println!("Board:\n{}", board.board);
+        tracing::info!("Board:\n{}", board.board);
         board.clear();
-        println!("Board - Cleared:\n{}", board.board);
+        tracing::info!("Board - Cleared:\n{}", board.board);
         assert_eq!(board.get(p).unwrap().color, Stone::Empty);
     }
 }

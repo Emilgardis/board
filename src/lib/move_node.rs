@@ -177,9 +177,9 @@ impl MoveGraph {
                           }
                       })?;
         }
-        println!("board is = {}", board.board);
+        //tracing::info!("board is = {}", board.board);
         board.last_move = self.get_move(end_node).unwrap().point.into();
-        println!("board is = {}", board.board);
+        //tracing::info!("board is = {}", board.board);
         Ok(board)
     }
     /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
@@ -277,13 +277,13 @@ fn does_it_work() {
         *a_1_1_b = BoardMarker::new(Point::new(14, 14), Stone::White);
     }
     // for i in
-    println!("{:?}", graph);
-    println!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
+    tracing::info!("{:?}", graph);
+    tracing::info!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
     let branched_down = graph.down_to_branch(a_1_2);
-    println!("Moving down on {:?} gives: end = {:?}",
+    tracing::info!("Moving down on {:?} gives: end = {:?}",
              a_1_2,
              branched_down);
-    println!("Board from a_1_2_1_2\n{}",
+    tracing::info!("Board from a_1_2_1_2\n{}",
              graph.as_board(a_1_2_1_2).unwrap().board);
     // let branched_up = graph.up_to_branch()
     //NOTE:FIXME:TODO: Add asserts!!

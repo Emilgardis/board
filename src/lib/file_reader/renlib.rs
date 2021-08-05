@@ -129,7 +129,7 @@ pub fn byte_to_point(byte: &u8) -> Result<Point, ParseError> {
     Ok(Point::new(
         (match byte.checked_sub(1) {
             Some(value) => value,
-            None => panic!("Underflowed position")
+            None => return Err(ParseError::Other("Underflowed position".to_string()))
         } & 0x0f) as u32,
         (byte >> 4) as u32
     ))
@@ -158,9 +158,10 @@ fn parse_v3x(file: &[u8], _version: Version) -> Result<MoveGraph, ParseError> {
         let point = if let Ok(point) = byte_to_point(byte) {
             point 
         } else {
+            tracing::debug!("Nope");
             Point::null()
         };
-        println!("Point: {:?} Command: ({:x}) {:?} Previous Index: {:?}", point, command.0, command.get_all(), cur_index);
+        tracing::info!("Point: {:?} Command: ({:x}) {:?} Previous Index: {:?}", point, command.0, command.get_all(), cur_index);
         let stone = if let Some(cur_index) =  cur_index {
             if graph.moves_to_root(cur_index) % 2 == 1 {
                 Stone::Black
@@ -174,7 +175,7 @@ fn parse_v3x(file: &[u8], _version: Version) -> Result<MoveGraph, ParseError> {
         
         _cur_marker = Some(BoardMarker::new(point, stone));
         if command.is_comment() {
-            println!("Parsing comment");
+            tracing::info!("Parsing comment");
             // Move into functon?
             {
                 let mut title = Vec::new();
@@ -202,7 +203,7 @@ fn parse_v3x(file: &[u8], _version: Version) -> Result<MoveGraph, ParseError> {
             cur_index = Some(graph.add_move(cur_index.unwrap(), _cur_marker.clone().unwrap())); 
         }
         if command.is_right() && command.is_down() {
-            //println!("Popped markeds");
+            //tracing::info!("Popped markeds");
             //graph.marked_for_branch.pop();
             prev_index = cur_index;
             // This branch leaf is alone, go down immidiatly
@@ -212,10 +213,10 @@ fn parse_v3x(file: &[u8], _version: Version) -> Result<MoveGraph, ParseError> {
             if command.is_right() {
                 prev_index = None;
                 cur_index = graph.down_to_branch(cur_index.unwrap());
-                println!("Branching down to, res: {:?}", cur_index);
+                tracing::info!("Branching down to, res: {:?}", cur_index);
             }
             if command.is_down() {
-                println!("Marking {:?} as branch.", prev_index.unwrap_or_else(|| cur_root.unwrap()));
+                tracing::info!("Marking {:?} as branch.", prev_index.unwrap_or_else(|| cur_root.unwrap()));
                 graph.mark_for_branch(prev_index.unwrap_or_else(|| cur_root.unwrap()));
             }
         }

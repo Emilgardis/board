@@ -20,7 +20,7 @@ fn large_file() {
         }
     };
 
-    println!("\n{:?}", graph);
+    tracing::info!("\n{:?}", graph);
     panic!("intended!");
 }
 
@@ -32,7 +32,7 @@ fn null_move() {
         Err(err) => panic!("Couldn't parse file! Error: {:?}.", err),
     };
 
-    println!("\n{:?}", graph);
+    tracing::info!("\n{:?}", graph);
     panic!("intended!");
 
 }

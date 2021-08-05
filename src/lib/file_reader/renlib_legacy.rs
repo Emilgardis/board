@@ -18,7 +18,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             minv: minor_file_version,
         });
     }
-    println!(
+    tracing::info!(
         "Opened RenLib file, v.{}.{:>02}",
         major_file_version, minor_file_version
     );
@@ -33,28 +33,28 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
     let mut children: Vec<MoveIndex> = vec![];
     // If 0x00, then we are adding to branches.
     let mut current_command: u8 = 0x00;
-    // println!("{:?}", file_u8);
+    // tracing::info!("{:?}", file_u8);
     let mut command_iter = file_u8.into_iter().peekable();
     let mut moves: u32 = 1;
     let mut _multiple_start: u32 = 0;
     'main: while command_iter.peek().is_some() {
         let byte: u8 = command_iter.next().unwrap(); // This shouldn't fail.
-        println!("\t\tbyte: {:x}", byte);
-        println!(
+        tracing::info!("\t\tbyte: {:x}", byte);
+        tracing::info!(
             "Current byte: 0x{:0>2x}, current_command: 0x{:x}",
             byte, current_command
         );
         while current_command == 0x57 {
-            println!("What is this???");
+            tracing::info!("What is this???");
             {
                 let mut skipped = command_iter.by_ref().take(2);
-                println!(
+                tracing::info!(
                     "Skipped 0x{:02x}, 0x{:02x}, peek next",
                     skipped.next().unwrap(),
                     skipped.next().unwrap()
                 );
             }
-            println!("Now on {:?}", command_iter.peek());
+            tracing::info!("Now on {:?}", command_iter.peek());
             command_iter.next();
             current_command = command_iter.next().unwrap();
         }
@@ -62,24 +62,24 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             // 0x02 is no_move.
             if moves > 1 {
                 // last returns a Option<&T>
-                println!(
+                tracing::info!(
                     "Checking with: \n\tChildren: {:?}, branches: {:?}",
                     children, branches
                 );
                 moves += 1;
                 let last_child: MoveIndex = match children.last() {
                     Some(val) => {
-                        println!("adding move to child:{:?}", val);
+                        tracing::info!("adding move to child:{:?}", val);
                         *val
                     }
                     None => {
                         let val = *branches.last().ok_or_else(|| ParseError::Other("Failed reading branches.last()".to_string()))?;
-                        println!("adding move to last branch:{:?}", val);
+                        tracing::info!("adding move to last branch:{:?}", val);
                         val
                     }
                 };
 
-                // println!("\tAdded to {:?}.", last_child);
+                // tracing::info!("\tAdded to {:?}.", last_child);
                 children.push(graph.add_move(
                     last_child,
                     if byte != 0x00 {
@@ -101,7 +101,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                         BoardMarker::new(Point::from_1d(5, 2), Stone::Empty)
                     },
                 ));
-                println!(
+                tracing::info!(
                     "Added {:?}:{:?} to children: {:?}",
                     match children.last() {
                         Some(last) => graph.get_move(*last).unwrap(),
@@ -110,20 +110,20 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                     children.last().unwrap(),
                     children,
                 );
-                println!("Stepping forward in command.");
+                tracing::info!("Stepping forward in command.");
                 current_command = match command_iter.next() {
                     Some(command) => command,
                     None => return Err(ParseError::Other("Unable to get next command".to_string())),
                 };
             } else {
                 // We are in as root! HACKER!
-                println!(
+                tracing::info!(
                     "In root, should be empty: \n\tChildren: {:?}, branches: {:?}",
                     children, branches
                 );
                 if byte == 0x00 {
                     // we do not really care, we always support these files.
-                    println!("Skipped {:?}", command_iter.next());
+                    tracing::info!("Skipped {:?}", command_iter.next());
 
                     continue 'main;
                     // return {error!("Tried opeing a no-move start file."); Err(FileErr::ParseError)}; // Does not currently support these types of files.
@@ -164,15 +164,15 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                 }
             }
         }
-        println!("New command now 0x{:02x}", current_command);
+        tracing::info!("New command now 0x{:02x}", current_command);
         if current_command & 0x40 == 0x40 {
             // This branch is done, return down.
-            println!("Branching down");
+            tracing::info!("Branching down");
             let lost_child = if current_command & 0x80 == 0x80 {
                 // We need to add the current branch to branches, not sure what this actually is...
                 // I believe this is when only one stone is on the upcomming branch.
-                println!("Uncertain about 0xc0, add second last child to branches.");
-                println!("Branches: {:?}, children: {:?}", branches, children);
+                tracing::info!("Uncertain about 0xc0, add second last child to branches.");
+                tracing::info!("Branches: {:?}, children: {:?}", branches, children);
                 let children_len = children.len();
                 Some(children[children_len - 2])
             } else {
@@ -190,7 +190,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                 Some(child) => 1 + graph.down_to_root(*child).len() as u32,
                 None => 1,
             };
-            println!(
+            tracing::info!(
                 "back to subtree root, poping branches.\n\tChildren: {:?}, branches: \
                     {:?}. Moves: {}",
                 children, branches, moves
@@ -202,11 +202,11 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             // TODO: A sibling can be first move.
             // NOTE: If we are both 0x80 and 0x40 what happens?
             // I believe 0x40 should be checked first.
-            println!("We have some siblings. Add my parent to branches and replace with children");
+            tracing::info!("We have some siblings. Add my parent to branches and replace with children");
             let children_len = children.len();
             if children_len <= 2 {
                 // Not sure why.
-                // println!("Children that error me! {:?}", children);
+                // tracing::info!("Children that error me! {:?}", children);
                 // return Err(ParseError::LibParseError.into());
                 // FIXME: May be wrong.
                 if moves < 2 {
@@ -218,7 +218,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             // The one we just pushed has siblings, that means the branch is on the parent.
             let parent = children[children_len - 2];
             let child = children[children_len - 1];
-            println!("Parent is {:?}", parent);
+            tracing::info!("Parent is {:?}", parent);
             branches.push(parent);
             children = vec![parent];
             children.push(child);
@@ -234,9 +234,9 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             // ; // Not sure if need clone.
             // branches.push(children[children_len - 2]);
             // children = vec![children[children_len - 2]];
-            // println!("--NEW-- Children: {:?}", children);
+            // tracing::info!("--NEW-- Children: {:?}", children);
             // children.push(lost_child);
-            println!(
+            tracing::info!(
                 "New subtree, adding last child to branches.\n\tChildren: \
                     {:?}, branches: {:?}",
                 children, branches
@@ -267,7 +267,7 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             }
             command_iter.next(); // Skip the zero.
 
-            println!(
+            tracing::info!(
                 "\tTitle: {}, Comment: {}",
                 str::from_utf8(&title).unwrap_or("Failed to parse title!"),
                 str::from_utf8(&comment).unwrap_or("Failed to parse comment!")
@@ -278,13 +278,13 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                     let marker = graph
                         .get_move_mut(*last)
                         .expect("FIXME -- Child was added to vec but not to graph.");
-                    println!("Setting comment on {:?}", marker);
+                    tracing::info!("Setting comment on {:?}", marker);
                     marker.set_comment(format!(
                         "Title: {}, Comment: {}",
                         str::from_utf8(&title).unwrap_or("Failed to parse title!"),
                         str::from_utf8(&comment).unwrap_or("Failed to parse comment!")
                     ));
-                    println!("Comment set as {:?}", marker.comment);
+                    tracing::info!("Comment set as {:?}", marker.comment);
                 }
                 None => panic!("No last child found :/"),
             }

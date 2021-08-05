@@ -269,7 +269,7 @@ mod tests {
         }
 
         let illegal = Point::from_1d(7 * 15 + 5, 15);
-        println!("{:?}", illegal);
+        tracing::info!("{:?}", illegal);
     }
 
     #[test]
@@ -285,7 +285,7 @@ mod tests {
         for x in (7..12).filter(|x| *x != 8) {
             board.set_point(Point::new(x, y + 2), Stone::White);
         }
-        println!("\n{}\nChecks,{:?} and {:?}", board.board, &p1, p2);
+        tracing::info!("\n{}\nChecks,{:?} and {:?}", board.board, &p1, p2);
         assert!(
                    is_five_dir(&board, &p1, Direction::Horizontal).unwrap());
         assert!(
@@ -307,7 +307,7 @@ mod tests {
         for y in (7..12).filter(|y| *y != 8) {
             board.set_point(Point::new(x + 2, y), Stone::White);
         }
-        println!("\n{}\nChecks; {:?} and {:?}", board.board, &p1, p2);
+        tracing::info!("\n{}\nChecks; {:?} and {:?}", board.board, &p1, p2);
 
         assert!(is_five_dir(&board, &p1, Direction::Vertical).unwrap());
         assert!(is_five_dir(&board, &p2, Direction::Vertical).unwrap());
@@ -332,7 +332,7 @@ mod tests {
         let p1 = BoardMarker::new(Point::from_1d(11 * 15 + 6, 15), Stone::Black);
         let p2 = BoardMarker::new(Point::from_1d(12 + 3 * 15, 15), Stone::White);
 
-        println!("\n{}\nChecks; {:?} and {:?}", board.board, &p1, p2);
+        tracing::info!("\n{}\nChecks; {:?} and {:?}", board.board, &p1, p2);
 
         assert!(is_five_dir(&board, &p1, Direction::Diagonal).unwrap());
         assert!(is_five_dir(&board, &p2, Direction::Diagonal).unwrap());
@@ -348,7 +348,7 @@ mod tests {
 
         let p1 = BoardMarker::new(Point::from_1d(2u32 + 10 * 15, 15), Stone::Black);
 
-        println!("\n{}\nChecks; {:?}", board.board, &p1);
+        tracing::info!("\n{}\nChecks; {:?}", board.board, &p1);
         assert!(
                    is_five_dir(&board, &p1, Direction::AntiDiagonal).unwrap());
         //assert_eq!(is_line(&board, &p1), Ok(Direction::AntiDiagonal));
