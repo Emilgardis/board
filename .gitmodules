@@ -1,0 +1,3 @@
+[submodule "RenLib"]
+	path = RenLib
+	url = https://github.com/gomoku/RenLib.git
