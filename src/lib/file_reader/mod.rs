@@ -2,21 +2,20 @@
 //!
 //! Currently only supports _.pos_ and _.lib_ (RenLib) files of version 3.04+.
 
-
+use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
-use std::fs::File;
 
-
-
-use crate::board_logic::{BoardMarker, Stone, Point};
-use crate::move_node::{MoveGraph, MoveIndex};
+use crate::board_logic::{BoardMarker, Point, Stone};
 use crate::errors::*;
+use crate::move_node::{MoveGraph, MoveIndex};
 
 pub mod renlib;
 mod renlib_legacy;
+pub mod renlib_parser;
 
 /// Describes the file
+#[derive(Debug)]
 pub enum FileType {
     /// Generic Renju _.pos_ file.
     ///
@@ -128,21 +127,27 @@ pub enum FileErr {
     ParseError,
 }
 
-pub fn open_file(path: &Path) -> Result<MoveGraph, ParseError> {
+#[tracing::instrument]
+pub fn open_file(path: &Path) -> Result<MoveGraph, color_eyre::Report> {
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(&path)?;
+    tracing::trace!(filetype = ?filetype, "file opened");
 
-    match filetype { 
+    match filetype {
         Some(FileType::Pos) => {
             tracing::info!("Opening pos file. {:?}", path);
             let mut sequence: Vec<BoardMarker> = Vec::new();
             for (index, pos) in file.bytes().skip(1).enumerate() {
                 // First value should always be the number of moves.
                 sequence.push(BoardMarker::new(
-                        Point::from_1d(
-                            pos? as u32, 15),
-                        if index % 2 == 0 {Stone::Black} else {Stone::White}));
+                    Point::from_1d(pos? as u32, 15),
+                    if index % 2 == 0 {
+                        Stone::Black
+                    } else {
+                        Stone::White
+                    },
+                ));
             }
             let mut root = MoveGraph::new();
             let mut latest: MoveIndex = root.new_root(sequence[0].clone());
@@ -151,24 +156,17 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, ParseError> {
             }
             Ok(root)
         }
-        Some(FileType::Lib) => {
-            let mut file_u8: Vec<u8> = Vec::new();
-            for byte in file.bytes() {
-                file_u8.push(byte?)
-            }
-            renlib::parse_lib(file_u8)
-        }
-        _ => Err(ParseError::NotSupported),
+        Some(FileType::Lib) => renlib::parse_lib(std::io::BufReader::new(file)),
+        _ => Err(ParseError::NotSupported.into()),
     }
 }
-
 
 pub fn open_file_legacy(path: &Path) -> Result<MoveGraph, ParseError> {
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(&path)?;
 
-    match filetype { 
+    match filetype {
         Some(FileType::Lib) => {
             let mut file_u8: Vec<u8> = Vec::new();
             for byte in file.bytes() {
@@ -180,12 +178,11 @@ pub fn open_file_legacy(path: &Path) -> Result<MoveGraph, ParseError> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::path::Path;
-    
+
     use crate::move_node as mn;
 
     #[test]

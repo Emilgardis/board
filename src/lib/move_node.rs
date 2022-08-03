@@ -19,7 +19,7 @@ pub type EdgeIndex = daggy::EdgeIndex<BigU>;
 
 //pub type MoveGraph = daggy::Dag<NodeIndex, EdgeIndex>;
 
-#[derive(Clone, Copy,  PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct MoveIndex {
     node_index: NodeIndex,
     edge_index: Option<EdgeIndex>,
@@ -42,9 +42,9 @@ impl MoveIndex {
 
     pub fn from_option(edge_node_option: Option<(EdgeIndex, NodeIndex)>) -> Option<MoveIndex> {
         edge_node_option.map(|edge_node| MoveIndex {
-                         node_index: edge_node.1,
-                         edge_index: Some(edge_node.0),
-                     })
+            node_index: edge_node.1,
+            edge_index: Some(edge_node.0),
+        })
     }
 }
 
@@ -68,7 +68,9 @@ impl FromStr for MoveIndex {
         };
         match e {
             None => Ok(MoveIndex::new_node(n.unwrap().parse::<BigU>()?.into())),
-            Some(_e) => Err(ParseError::Other("Edges not currently supported for parsing.".to_string())),
+            Some(_e) => Err(ParseError::Other(
+                "Edges not currently supported for parsing.".to_string(),
+            )),
         }
     }
 }
@@ -77,7 +79,6 @@ pub struct MoveGraph {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
     pub marked_for_branch: Vec<NodeIndex>,
 }
-
 
 impl MoveGraph {
     pub fn new() -> MoveGraph {
@@ -114,7 +115,7 @@ impl MoveGraph {
         result
     }
 
-    pub fn get_parent(&self, child: MoveIndex) -> Option<MoveIndex> {
+    pub fn get_parent(&self, child: &MoveIndex) -> Option<MoveIndex> {
         let mut parent = self.graph.parents(child.node_index);
         let result = parent.walk_next(&self.graph);
         if parent.walk_next(&self.graph) != None {
@@ -124,7 +125,7 @@ impl MoveGraph {
         }
     }
 
-    pub fn get_siblings(&self, child: MoveIndex) -> Vec<MoveIndex> {
+    pub fn get_siblings(&self, child: &MoveIndex) -> Vec<MoveIndex> {
         let parent_opt = self.get_parent(child);
         match parent_opt {
             Some(parent) => self.get_children(parent), // Not ideal, should not really return the original child.
@@ -135,7 +136,7 @@ impl MoveGraph {
     // choices. etc.
 
     /// Gives a simple vec of all the traversed parents including root.
-    pub fn down_to_root(&self, node: MoveIndex) -> Vec<MoveIndex> {
+    pub fn down_to_root(&self, node: &MoveIndex) -> Vec<MoveIndex> {
         let mut parent: Option<MoveIndex> = self.get_parent(node);
         if parent.is_none() {
             return vec![];
@@ -144,13 +145,13 @@ impl MoveGraph {
         let mut result: Vec<MoveIndex> = vec![parent.unwrap()];
         while let Some(new_parent) = parent {
             result.push(new_parent);
-            parent = self.get_parent(new_parent);
+            parent = self.get_parent(&new_parent);
         }
         result
     }
 
     /// Gives the amount of moves to travel to root.
-    pub fn moves_to_root(&self, node: MoveIndex) -> usize {
+    pub fn moves_to_root(&self, node: &MoveIndex) -> usize {
         let mut parent: Option<MoveIndex> = self.get_parent(node);
         if parent.is_none() {
             return 0;
@@ -158,27 +159,29 @@ impl MoveGraph {
         let mut length = 0;
         while let Some(new_parent) = parent {
             length += 1;
-            parent = self.get_parent(new_parent);
+            parent = self.get_parent(&new_parent);
         }
         length
     }
 
-
     /// Returns the board as it would look like when end_node was played.
-    pub fn as_board(&self, end_node: MoveIndex) -> Result<Board, ParseError> {
+    pub fn as_board(&self, end_node: &MoveIndex) -> Result<Board, ParseError> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
-        move_list.push(end_node);
+        move_list.push(end_node.clone());
         let mut board: Board = Board::new(15);
         for index_marker in move_list {
             board.set(match self.get_move(index_marker) {
-                          Some(val) => val.clone(),
-                          None => {
-                              return Err(ParseError::Other(format!("Couldn't get move at: {:?}", index_marker)))
-                          }
-                      })?;
+                Some(val) => val.clone(),
+                None => {
+                    return Err(ParseError::Other(format!(
+                        "Couldn't get move at: {:?}",
+                        index_marker
+                    )))
+                }
+            })?;
         }
         //tracing::info!("board is = {}", board.board);
-        board.last_move = self.get_move(end_node).unwrap().point.into();
+        board.last_move = self.get_move(end_node.clone()).unwrap().point.into();
         //tracing::info!("board is = {}", board.board);
         Ok(board)
     }
@@ -198,21 +201,25 @@ impl MoveGraph {
     /// Move down in tree until there is a branch, i.e move has multiple children.
     ///
     /// Returns the branching node, if any.
-    pub fn down_to_branch(&self, node: MoveIndex) -> Option<MoveIndex> {
+    pub fn down_to_branch(&self, node: &MoveIndex) -> Option<MoveIndex> {
         let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
         let mut parent: Option<MoveIndex> = self.get_parent(node);
 
         // Ehm... FIXME: Not sure if this is right. We want to go down to branch, even if it is close.
         let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
         while parent.is_some() && siblings.len() == 1 {
-            if self.marked_for_branch.iter().any(|m| m == &parent.unwrap().node_index) {
+            if self
+                .marked_for_branch
+                .iter()
+                .any(|m| m == &parent.unwrap().node_index)
+            {
                 break;
             }
             // If it is a lonechild len of siblings will be 1.
             let parentunw: MoveIndex = parent.unwrap(); // Safe as parent must be some for this code to run.
             branch_ancestors.push(parentunw); // Same as in fn down_to_branch, FIXME
-            parent = self.get_parent(parentunw);
-            siblings = self.get_siblings(parentunw);
+            parent = self.get_parent(&parentunw);
+            siblings = self.get_siblings(&parentunw);
             // If a node is marked as a branch then it is also a branch.
             // FIXME: Is this correct?
         }
@@ -226,8 +233,10 @@ impl MoveGraph {
             let marker: &mut BoardMarker = match self.get_move_mut(node) {
                 Some(val) => val,
                 None => {
-                    return Err(ParseError::Other(format!("Couldn't set position: {:?} at node {:?}", point, node)
-                    ))
+                    return Err(ParseError::Other(format!(
+                        "Couldn't set position: {:?} at node {:?}",
+                        point, node
+                    )))
                 }
             };
             marker.set_pos(&point);
@@ -237,6 +246,20 @@ impl MoveGraph {
 
     pub fn mark_for_branch(&mut self, node: MoveIndex) {
         self.marked_for_branch.push(node.node_index);
+    }
+
+    pub fn get_variant(&self, cur_index: Option<&MoveIndex>, point: &Point) -> Option<MoveIndex> {
+        // Confusion, this searches the nodes, looking for a down command on the same position, or else, looks for a right with the same position. Why? I don't know. it's always to get the next move
+        if let Some(node) = cur_index {
+            if let Some(branch) = self.down_to_branch(node) {
+                if let Some(pos2) = self.graph.node_weight(branch.node_index) {
+                    if &pos2.point == point {
+                        return Some(branch);
+                    }
+                }
+            }
+        }
+        None
     }
 }
 
@@ -248,7 +271,14 @@ impl Default for MoveGraph {
 
 impl fmt::Debug for MoveGraph {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", daggy::petgraph::dot::Dot::with_config(self.graph.graph(), &[/*daggy::petgraph::dot::Config::EdgeIndexLabel,daggy::petgraph::dot::Config::NodeIndexLabel*/]))?;
+        write!(
+            f,
+            "{:?}",
+            daggy::petgraph::dot::Dot::with_config(
+                self.graph.graph(),
+                &[/*daggy::petgraph::dot::Config::EdgeIndexLabel,daggy::petgraph::dot::Config::NodeIndexLabel*/]
+            )
+        )?;
         Ok(())
     }
 }
@@ -279,12 +309,16 @@ fn does_it_work() {
     // for i in
     tracing::info!("{:?}", graph);
     tracing::info!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
-    let branched_down = graph.down_to_branch(a_1_2);
-    tracing::info!("Moving down on {:?} gives: end = {:?}",
-             a_1_2,
-             branched_down);
-    tracing::info!("Board from a_1_2_1_2\n{}",
-             graph.as_board(a_1_2_1_2).unwrap().board);
+    let branched_down = graph.down_to_branch(&a_1_2);
+    tracing::info!(
+        "Moving down on {:?} gives: end = {:?}",
+        a_1_2,
+        branched_down
+    );
+    tracing::info!(
+        "Board from a_1_2_1_2\n{}",
+        graph.as_board(&a_1_2_1_2).unwrap().board
+    );
     // let branched_up = graph.up_to_branch()
     //NOTE:FIXME:TODO: Add asserts!!
 }

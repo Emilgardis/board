@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use std::fmt;
-use std::ops::{Deref, DerefMut};
-use std::iter::FromIterator;
-use std::char;
 use crate::errors::*;
+use std::char;
+use std::fmt;
+use std::iter::FromIterator;
+use std::ops::{Deref, DerefMut};
 /// Enum for `Stone`,
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Stone {
@@ -31,17 +31,19 @@ impl Default for Stone {
 
 impl fmt::Display for Stone {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "{}",
-               match *self {
-                   Stone::Empty => ".",
-                   Stone::White => "O",
-                   Stone::Black => "X",
-               })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Stone::Empty => ".",
+                Stone::White => "O",
+                Stone::Black => "X",
+            }
+        )
     }
 }
 /// A coordinate located at (`x`, `y`)
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Point {
     /// Whether the point is outside the board, ie a null point.
     pub is_null: bool,
@@ -49,13 +51,22 @@ pub struct Point {
     pub y: u32,
 }
 
+impl Point {
+    pub fn is_valid(&self) -> bool {
+        let Point { x, y, .. } = *self;
+        !((x != 0 || y != 0) && (x < 1 || x > 15 || y < 1 || y > 15))
+    }
+}
+
 impl fmt::Debug for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if !self.is_null {
-            write!(f,
-                   "[{:>2}, {:>2}]",
-                   ((self.x as u8 + 65u8) as char),
-                   15 - self.y)
+            write!(
+                f,
+                "[{:>2}, {:>2}]",
+                ((self.x as u8 + 65u8) as char),
+                15 - self.y
+            )
         } else {
             write!(f, "None")
         }
@@ -65,7 +76,7 @@ impl fmt::Debug for Point {
 #[derive(Clone, Copy, Debug)]
 pub struct BoardText;
 
-/// Holds info about the marker at `Point`.
+/// Holds info about the marker at `Point` or a move.
 ///
 /// # Notes
 /// This will hopefully have more fields in the future, planned for is support for comments on each
@@ -76,6 +87,7 @@ pub struct BoardMarker {
     pub color: Stone,
     pub comment: Option<String>,
     pub board_text: Option<BoardText>, // Should find a better way to do this, maybe Vec<(Point, &'static str)>,
+    pub info: u16,                     // TODO: Frank, UINT doesn't have enough bits for 0xffff00
 }
 
 impl BoardMarker {
@@ -85,11 +97,39 @@ impl BoardMarker {
             color,
             comment: None,
             board_text: None,
+            info: 0,
         }
+    }
+
+    pub fn null_move() -> BoardMarker {
+        BoardMarker::new(Point::null(), Stone::Empty)
+    }
+
+    pub fn from_pos_info(pos: u8, info: u16) -> Result<BoardMarker, color_eyre::eyre::Error> {
+        /// This should be similar to `RenLib/Utils.cpp:633` CPoint Utils::PosToPoint(int pos), but with bitwise logic. Not sure what the check in `RenLib/RenLibDoc.cpp:2119` is
+        pub fn byte_to_point(byte: &u8) -> Result<Point, ParseError> {
+            Ok(Point::new(
+                (match byte.checked_sub(1) {
+                    Some(value) => value,
+                    None => return Err(ParseError::Other("Underflowed position".to_string())),
+                } & 0x0f) as u32,
+                (byte >> 4) as u32,
+            ))
+        }
+        Ok(BoardMarker {
+            point: byte_to_point(&pos)?,
+            color: Stone::Empty,
+            comment: None,
+            board_text: None,
+            info,
+        })
     }
     // Are the following functions needed?
     pub fn set_pos(&mut self, point: &Point) {
         self.point = *point;
+    }
+    pub fn add_info(&mut self, info: u8) {
+        self.info = (self.info & 0xFF00) | info as u16;
     }
     pub fn set_comment(&mut self, comment: String) {
         self.comment = if !comment.is_empty() {
@@ -103,11 +143,13 @@ impl BoardMarker {
 impl fmt::Debug for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if !self.point.is_null {
-            write!(f,
-                   "|[{:>2}, {:>2}]{:?}|",
-                   ((self.point.x as u8 + 65u8) as char),
-                   15 - self.point.y,
-                   self.color)
+            write!(
+                f,
+                "|[{:>2}, {:>2}]{:?}|",
+                ((self.point.x as u8 + 65u8) as char),
+                15 - self.point.y,
+                self.color
+            )
         } else {
             write!(f, "|     None    |")
         }
@@ -116,17 +158,19 @@ impl fmt::Debug for BoardMarker {
 
 impl fmt::Display for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,
-               "{}",
-               if self.point.is_null {
-                   "."
-               } else {
-                   match self.color {
-                       Stone::Empty => ".",
-                       Stone::White => "O",
-                       Stone::Black => "X",
-                   }
-               })
+        write!(
+            f,
+            "{}",
+            if self.point.is_null {
+                "."
+            } else {
+                match self.color {
+                    Stone::Empty => ".",
+                    Stone::White => "O",
+                    Stone::Black => "X",
+                }
+            }
+        )
     }
 }
 
@@ -189,7 +233,6 @@ impl DerefMut for BoardArr {
     }
 }
 
-
 #[derive(Debug)]
 /// Board type. Holds the data for a game.
 pub struct Board {
@@ -216,12 +259,14 @@ impl fmt::Display for BoardArr {
                 write!(f, "\n{:2}:{} ", 15 - dy, marker)?;
             }
         }
-        write!(f,
-               "\n   {}",
-               (b'A'..b'A' + 15)
-                   .map(|d| (d as char).to_string())
-                   .collect::<Vec<_>>()
-                   .join(" "))
+        write!(
+            f,
+            "\n   {}",
+            (b'A'..b'A' + 15)
+                .map(|d| (d as char).to_string())
+                .collect::<Vec<_>>()
+                .join(" ")
+        )
     }
 }
 
@@ -277,7 +322,9 @@ impl Board {
 
     pub fn set(&mut self, marker: BoardMarker) -> Result<(), ParseError> {
         let idx = marker.point.to_1d(self.boardsize) as usize;
-        let mut_marker = self.board.get_mut(idx).ok_or_else(|| ParseError::Other(format!("Couldn't get index {} in board array", idx)))?;
+        let mut_marker = self.board.get_mut(idx).ok_or_else(|| {
+            ParseError::Other(format!("Couldn't get index {} in board array", idx))
+        })?;
         *mut_marker = marker;
         Ok(())
     }

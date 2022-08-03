@@ -4,6 +4,7 @@ extern crate clap;
 extern crate rustyline;
 
 use clap::{App, Arg};
+use color_eyre::Report;
 use renju::errors::*;
 
 use std::path::Path;
@@ -16,30 +17,26 @@ use std::env;
 
 fn main() -> Result<(), color_eyre::Report> {
     let _ = dotenv::dotenv();
-    tracing_subscriber::fmt::init();
+    color_eyre::install()?;
+    renju::util::build_logger()?;
     let matches = App::new("renju-open")
-        .version(crate_version!())
         .arg(
-            Arg::with_name("file")
+            Arg::new("file")
                 .index(1)
                 .help("File to read from")
                 .required(true),
         )
+        .arg(Arg::new("output").short('o').help("File to output to"))
         .arg(
-            Arg::with_name("output")
-                .short("o")
-                .help("File to output to"),
-        )
-        .arg(
-            Arg::with_name("legacy")
-                .short("l")
+            Arg::new("legacy")
+                .short('l')
                 .takes_value(false)
                 .help("Parse lib with legacy code"),
         )
         .get_matches();
 
     let path = Path::new(matches.value_of("file").unwrap());
-    tracing::info!("File: {:?}\n", path);
+    tracing::info!("File: {:?}", path);
     let graph = if !matches.is_present("legacy") {
         open_file(path).wrap_err_with(|| format!("while parsing file {:?}", path))?
     } else {
@@ -49,7 +46,7 @@ fn main() -> Result<(), color_eyre::Report> {
     eprintln!("{:?}", graph);
     //let mut file = OpenOptions::new().write(true).create(true).open(format!("{}.dot",path.file_stem().unwrap().to_str().unwrap())).expect("Couldn't create .dot file");
     //write!(file, "{:?}", graph).chain_err(|| "while writing to file");
-    let mut rl = rustyline::Editor::<()>::new();
+    let mut rl = rustyline::Editor::<()>::new()?;
 
     loop {
         let read = rl.readline(">> ");
@@ -90,5 +87,5 @@ fn main() -> Result<(), color_eyre::Report> {
 }
 
 fn traverse(graph: &MoveGraph, index: MoveIndex) -> Result<board_logic::Board, ParseError> {
-    graph.as_board(index)
+    graph.as_board(&index)
 }

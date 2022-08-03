@@ -20,7 +20,8 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
     }
     tracing::info!(
         "Opened RenLib file, v.{}.{:>02}",
-        major_file_version, minor_file_version
+        major_file_version,
+        minor_file_version
     );
 
     // Here we will want to do everything that is needed.
@@ -42,7 +43,8 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
         tracing::info!("\t\tbyte: {:x}", byte);
         tracing::info!(
             "Current byte: 0x{:0>2x}, current_command: 0x{:x}",
-            byte, current_command
+            byte,
+            current_command
         );
         while current_command == 0x57 {
             tracing::info!("What is this???");
@@ -64,7 +66,8 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                 // last returns a Option<&T>
                 tracing::info!(
                     "Checking with: \n\tChildren: {:?}, branches: {:?}",
-                    children, branches
+                    children,
+                    branches
                 );
                 moves += 1;
                 let last_child: MoveIndex = match children.last() {
@@ -73,7 +76,9 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                         *val
                     }
                     None => {
-                        let val = *branches.last().ok_or_else(|| ParseError::Other("Failed reading branches.last()".to_string()))?;
+                        let val = *branches.last().ok_or_else(|| {
+                            ParseError::Other("Failed reading branches.last()".to_string())
+                        })?;
                         tracing::info!("adding move to last branch:{:?}", val);
                         val
                     }
@@ -87,7 +92,11 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                             Point::new(
                                 (match byte.checked_sub(1) {
                                     Some(value) => value,
-                                    None => return Err(ParseError::Other("Underflowed position".to_string())),
+                                    None => {
+                                        return Err(ParseError::Other(
+                                            "Underflowed position".to_string(),
+                                        ))
+                                    }
                                 } & 0x0f) as u32,
                                 (byte >> 4) as u32,
                             ),
@@ -105,7 +114,8 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                     "Added {:?}:{:?} to children: {:?}",
                     match children.last() {
                         Some(last) => graph.get_move(*last).unwrap(),
-                        None => return Err(ParseError::Other("Couldn't get last child".to_string())),
+                        None =>
+                            return Err(ParseError::Other("Couldn't get last child".to_string())),
                     },
                     children.last().unwrap(),
                     children,
@@ -113,13 +123,16 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                 tracing::info!("Stepping forward in command.");
                 current_command = match command_iter.next() {
                     Some(command) => command,
-                    None => return Err(ParseError::Other("Unable to get next command".to_string())),
+                    None => {
+                        return Err(ParseError::Other("Unable to get next command".to_string()))
+                    }
                 };
             } else {
                 // We are in as root! HACKER!
                 tracing::info!(
                     "In root, should be empty: \n\tChildren: {:?}, branches: {:?}",
-                    children, branches
+                    children,
+                    branches
                 );
                 if byte == 0x00 {
                     // we do not really care, we always support these files.
@@ -187,13 +200,15 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
                 branches.pop(); // Should be used when this supports multiple starts.
             }
             moves = match children.get(0) {
-                Some(child) => 1 + graph.down_to_root(*child).len() as u32,
+                Some(child) => 1 + graph.down_to_root(child).len() as u32,
                 None => 1,
             };
             tracing::info!(
                 "back to subtree root, poping branches.\n\tChildren: {:?}, branches: \
                     {:?}. Moves: {}",
-                children, branches, moves
+                children,
+                branches,
+                moves
             );
         }
         if current_command & 0x80 == 0x80 {
@@ -202,7 +217,9 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             // TODO: A sibling can be first move.
             // NOTE: If we are both 0x80 and 0x40 what happens?
             // I believe 0x40 should be checked first.
-            tracing::info!("We have some siblings. Add my parent to branches and replace with children");
+            tracing::info!(
+                "We have some siblings. Add my parent to branches and replace with children"
+            );
             let children_len = children.len();
             if children_len <= 2 {
                 // Not sure why.
@@ -239,7 +256,8 @@ pub fn parse_lib_legacy(file_u8: Vec<u8>) -> Result<MoveGraph, ParseError> {
             tracing::info!(
                 "New subtree, adding last child to branches.\n\tChildren: \
                     {:?}, branches: {:?}",
-                children, branches
+                children,
+                branches
             );
         }
 

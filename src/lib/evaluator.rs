@@ -12,7 +12,7 @@
 //! # Implementation.
 //!
 
-use crate::board_logic::{BoardMarker, Board, Stone};
+use crate::board_logic::{Board, BoardMarker, Stone};
 
 use std::collections::BTreeSet;
 use std::slice::Iter;
@@ -25,11 +25,13 @@ pub enum Direction {
 }
 impl Direction {
     pub fn iter() -> Iter<'static, Direction> {
-        static DIRECTIONS: [Direction; 4] = [Direction::Horizontal,
-                                             Direction::Diagonal,
-                                             Direction::Diagonal,
-                                             Direction::AntiDiagonal];
-                                             DIRECTIONS.iter()
+        static DIRECTIONS: [Direction; 4] = [
+            Direction::Horizontal,
+            Direction::Diagonal,
+            Direction::Diagonal,
+            Direction::AntiDiagonal,
+        ];
+        DIRECTIONS.iter()
     }
 }
 
@@ -130,7 +132,6 @@ pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
         }
     }
     Ok(false)
-
 }
 pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<Line, ()> {
     if marker.point.is_null {
@@ -208,8 +209,10 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 }
             }
             'diag_up: for i in 1..board.boardsize + 1 {
-                match board.get_i32xy((marker.point.x as i32) - (i as i32),
-                                      (marker.point.y as i32) - (i as i32)) {
+                match board.get_i32xy(
+                    (marker.point.x as i32) - (i as i32),
+                    (marker.point.y as i32) - (i as i32),
+                ) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
@@ -225,8 +228,10 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
         Direction::AntiDiagonal => {
             let mut line: Line = Line::new(marker, direction);
             'anti_diag_down: for i in 1..board.boardsize + 1 {
-                match board.get_i32xy((marker.point.x as i32) - (i as i32),
-                                      (marker.point.y + i) as i32) {
+                match board.get_i32xy(
+                    (marker.point.x as i32) - (i as i32),
+                    (marker.point.y + i) as i32,
+                ) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(i as i8);
@@ -238,8 +243,10 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
                 }
             }
             'anti_diag_up: for i in 1..board.boardsize + 1 {
-                match board.get_i32xy((marker.point.x + i) as i32,
-                                      (marker.point.y as i32) - (i as i32)) {
+                match board.get_i32xy(
+                    (marker.point.x + i) as i32,
+                    (marker.point.y as i32) - (i as i32),
+                ) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
                             line.push(-(i as i8));
@@ -258,7 +265,7 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board_logic::{Board, BoardMarker, Stone, Point};
+    use crate::board_logic::{Board, BoardMarker, Point, Stone};
 
     #[test]
     #[ignore]
@@ -286,10 +293,8 @@ mod tests {
             board.set_point(Point::new(x, y + 2), Stone::White);
         }
         tracing::info!("\n{}\nChecks,{:?} and {:?}", board.board, &p1, p2);
-        assert!(
-                   is_five_dir(&board, &p1, Direction::Horizontal).unwrap());
-        assert!(
-                   is_five_dir(&board, &p2, Direction::Horizontal).unwrap());
+        assert!(is_five_dir(&board, &p1, Direction::Horizontal).unwrap());
+        assert!(is_five_dir(&board, &p2, Direction::Horizontal).unwrap());
         //assert_eq!(line(&board, &p1), Ok(Direction::Horizontal));
         // assert_eq!(is_line(&board, &p2).unwrap(), Direction::Horizontal);
     }
@@ -322,11 +327,14 @@ mod tests {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
         #[allow(clippy::identity_op)]
-        for pos in [9u32 /*+ 0 * 15*/,
-                    10u32 + 1 * 15,
-                    11u32 + 2 * 15,
-                    13u32 + 4 * 15]
-                    .iter() {
+        for pos in [
+            9u32, /*+ 0 * 15*/
+            10u32 + 1 * 15,
+            11u32 + 2 * 15,
+            13u32 + 4 * 15,
+        ]
+        .iter()
+        {
             board.set_point(Point::from_1d(*pos, 15), Stone::White);
         }
         let p1 = BoardMarker::new(Point::from_1d(11 * 15 + 6, 15), Stone::Black);
@@ -349,8 +357,7 @@ mod tests {
         let p1 = BoardMarker::new(Point::from_1d(2u32 + 10 * 15, 15), Stone::Black);
 
         tracing::info!("\n{}\nChecks; {:?}", board.board, &p1);
-        assert!(
-                   is_five_dir(&board, &p1, Direction::AntiDiagonal).unwrap());
+        assert!(is_five_dir(&board, &p1, Direction::AntiDiagonal).unwrap());
         //assert_eq!(is_line(&board, &p1), Ok(Direction::AntiDiagonal));
     }
 }

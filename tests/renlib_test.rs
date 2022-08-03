@@ -12,7 +12,9 @@ use std::path::Path;
 #[ignore]
 /// This crashes on current implementation of `move_node`.
 fn large_file() {
-    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new("tests/norelease_all_games.lib")) {
+    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new(
+        "tests/norelease_all_games.lib",
+    )) {
         Ok(val) => val,
         Err(err) => {
             panic!("Couldn't parse file! Error: {:?}.\nPlease download all games from renju.net/media/games.php and then convert it to a .lib file in renlib and place in RenLib/norelease_all_games.lib",
@@ -27,12 +29,12 @@ fn large_file() {
 #[ignore]
 #[test]
 fn null_move() {
-    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new("tests/null_move2.lib")) {
-        Ok(val) => val,
-        Err(err) => panic!("Couldn't parse file! Error: {:?}.", err),
-    };
+    let graph: move_node::MoveGraph =
+        match file_reader::open_file(Path::new("tests/null_move2.lib")) {
+            Ok(val) => val,
+            Err(err) => panic!("Couldn't parse file! Error: {:?}.", err),
+        };
 
     tracing::info!("\n{:?}", graph);
     panic!("intended!");
-
 }

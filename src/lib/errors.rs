@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     #[error("File is not currently supported")]
@@ -17,6 +15,5 @@ pub enum ParseError {
     #[error(transparent)]
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("{0}")]
-    Other(String)
+    Other(String),
 }
-
