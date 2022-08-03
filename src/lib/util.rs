@@ -10,9 +10,7 @@ use tracing_log::NormalizeEvent;
 use ansi_term::{Color, Style};
 use color_eyre::eyre::WrapErr;
 use fmt::{time::FormatTime, FormattedFields};
-use std::convert::AsRef;
 use std::fmt::Write;
-use std::path::Path;
 use tracing::{
     field::{Field, Visit},
     Level, Subscriber,

@@ -1,10 +1,4 @@
-extern crate renju;
-#[macro_use]
-extern crate clap;
-extern crate rustyline;
-
 use clap::{App, Arg};
-use color_eyre::Report;
 use renju::errors::*;
 
 use std::path::Path;
@@ -13,7 +7,6 @@ use color_eyre::eyre::WrapErr;
 use renju::board_logic;
 use renju::file_reader::{open_file, open_file_legacy};
 use renju::move_node::{MoveGraph, MoveIndex};
-use std::env;
 
 fn main() -> Result<(), color_eyre::Report> {
     let _ = dotenv::dotenv();

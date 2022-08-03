@@ -54,7 +54,7 @@ pub struct Point {
 impl Point {
     pub fn is_valid(&self) -> bool {
         let Point { x, y, .. } = *self;
-        !((x != 0 || y != 0) && (x < 1 || x > 15 || y < 1 || y > 15))
+        !((x != 0 || y != 0) && (!(1..=15).contains(&x) || y < 1 || y > 15))
     }
 }
 

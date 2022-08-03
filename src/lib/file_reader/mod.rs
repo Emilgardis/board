@@ -11,8 +11,6 @@ use crate::errors::*;
 use crate::move_node::{MoveGraph, MoveIndex};
 
 pub mod renlib;
-mod renlib_legacy;
-pub mod renlib_parser;
 
 /// Describes the file
 #[derive(Debug)]
@@ -172,7 +170,7 @@ pub fn open_file_legacy(path: &Path) -> Result<MoveGraph, ParseError> {
             for byte in file.bytes() {
                 file_u8.push(byte?)
             }
-            self::renlib_legacy::parse_lib_legacy(file_u8)
+            self::renlib::old::parse_lib_legacy(file_u8)
         }
         _ => Err(ParseError::NotSupported),
     }

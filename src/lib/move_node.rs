@@ -167,7 +167,7 @@ impl MoveGraph {
     /// Returns the board as it would look like when end_node was played.
     pub fn as_board(&self, end_node: &MoveIndex) -> Result<Board, ParseError> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
-        move_list.push(end_node.clone());
+        move_list.push(*end_node);
         let mut board: Board = Board::new(15);
         for index_marker in move_list {
             board.set(match self.get_move(index_marker) {
@@ -181,7 +181,7 @@ impl MoveGraph {
             })?;
         }
         //tracing::info!("board is = {}", board.board);
-        board.last_move = self.get_move(end_node.clone()).unwrap().point.into();
+        board.last_move = self.get_move(*end_node).unwrap().point.into();
         //tracing::info!("board is = {}", board.board);
         Ok(board)
     }
