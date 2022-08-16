@@ -63,7 +63,7 @@ impl fmt::Debug for Point {
         if !self.is_null {
             write!(
                 f,
-                "[{:>2}, {:>2}]",
+                "[{:>1}, {:>2}]",
                 ((self.x as u8 + 65u8) as char),
                 15 - self.y
             )
@@ -73,21 +73,19 @@ impl fmt::Debug for Point {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct BoardText;
-
 /// Holds info about the marker at `Point` or a move.
 ///
 /// # Notes
 /// This will hopefully have more fields in the future, planned for is support for comments on each
 /// marker.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
-    pub comment: Option<String>,
-    pub board_text: Option<BoardText>, // Should find a better way to do this, maybe Vec<(Point, &'static str)>,
-    pub info: u16,                     // TODO: Frank, UINT doesn't have enough bits for 0xffff00
+    pub oneline_comment: Option<String>,
+    pub multiline_comment: Option<String>,
+    pub board_text: Option<String>,
+    pub info: u16, // TODO: Frank, UINT doesn't have enough bits for 0xffff00
 }
 
 impl BoardMarker {
@@ -95,7 +93,8 @@ impl BoardMarker {
         BoardMarker {
             point,
             color,
-            comment: None,
+            oneline_comment: None,
+            multiline_comment: None,
             board_text: None,
             info: 0,
         }
@@ -106,20 +105,11 @@ impl BoardMarker {
     }
 
     pub fn from_pos_info(pos: u8, info: u16) -> Result<BoardMarker, color_eyre::eyre::Error> {
-        /// This should be similar to `RenLib/Utils.cpp:633` CPoint Utils::PosToPoint(int pos), but with bitwise logic. Not sure what the check in `RenLib/RenLibDoc.cpp:2119` is
-        pub fn byte_to_point(byte: &u8) -> Result<Point, ParseError> {
-            Ok(Point::new(
-                (match byte.checked_sub(1) {
-                    Some(value) => value,
-                    None => return Err(ParseError::Other("Underflowed position".to_string())),
-                } & 0x0f) as u32,
-                (byte >> 4) as u32,
-            ))
-        }
         Ok(BoardMarker {
-            point: byte_to_point(&pos)?,
+            point: Point::from_byte(pos)?,
             color: Stone::Empty,
-            comment: None,
+            oneline_comment: None,
+            multiline_comment: None,
             board_text: None,
             info,
         })
@@ -131,8 +121,15 @@ impl BoardMarker {
     pub fn add_info(&mut self, info: u8) {
         self.info = (self.info & 0xFF00) | info as u16;
     }
-    pub fn set_comment(&mut self, comment: String) {
-        self.comment = if !comment.is_empty() {
+    pub fn set_oneline_comment(&mut self, comment: String) {
+        self.oneline_comment = if !comment.is_empty() {
+            Some(comment)
+        } else {
+            None
+        };
+    }
+    pub fn set_multiline_comment(&mut self, comment: String) {
+        self.multiline_comment = if !comment.is_empty() {
             Some(comment)
         } else {
             None
@@ -142,16 +139,27 @@ impl BoardMarker {
 
 impl fmt::Debug for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if !self.point.is_null {
-            write!(
-                f,
-                "|[{:>2}, {:>2}]{:?}|",
-                ((self.point.x as u8 + 65u8) as char),
-                15 - self.point.y,
-                self.color
-            )
+        if f.alternate() {
+            if !self.point.is_null {
+                write!(
+                    f,
+                    "|[{:>2}, {:>2}]{:?}|",
+                    ((self.point.x as u8 + 65u8) as char),
+                    15 - self.point.y,
+                    self.color
+                )
+            } else {
+                write!(f, "|     None    |")
+            }
         } else {
-            write!(f, "|     None    |")
+            f.debug_struct("BoardMarker")
+                .field("point", &self.point)
+                .field("color", &self.color)
+                .field("oneline_comment", &self.oneline_comment)
+                .field("multiline_comment", &self.multiline_comment)
+                .field("board_text", &self.board_text)
+                .field("info", &self.info)
+                .finish()
         }
     }
 }
@@ -175,6 +183,18 @@ impl fmt::Display for BoardMarker {
 }
 
 impl Point {
+    /// Get point from byte
+    ///
+    /// This should be similar to `RenLib/Utils.cpp:633` CPoint Utils::PosToPoint(int pos), but with bitwise logic. Not sure what the check in `RenLib/RenLibDoc.cpp:2119` is
+    pub fn from_byte(byte: u8) -> Result<Point, ParseError> {
+        Ok(Point::new(
+            (match byte.checked_sub(1) {
+                Some(value) => value,
+                None => return Err(ParseError::Other("Underflowed position".to_string())),
+            } & 0x0f) as u32,
+            (byte >> 4) as u32,
+        ))
+    }
     /// Makes a `Point` at (`x`, `y`)
     pub fn new(x: u32, y: u32) -> Point {
         Point {

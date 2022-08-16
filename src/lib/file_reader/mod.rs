@@ -27,8 +27,6 @@ pub enum FileType {
     Pos,
     /// RenLib, _.lib_ file.
     ///
-    /// This is not supported yet as I have not fully reversed the protocol yet.
-    ///
     /// # About
     ///
     /// _.lib_ files are most used for it's excellent support for saving multiple games of one play. This enables
@@ -156,23 +154,6 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, color_eyre::Report> {
         }
         Some(FileType::Lib) => renlib::parse_lib(std::io::BufReader::new(file)),
         _ => Err(ParseError::NotSupported.into()),
-    }
-}
-
-pub fn open_file_legacy(path: &Path) -> Result<MoveGraph, ParseError> {
-    let _display = path.display();
-    let filetype = FileType::new(path);
-    let file: File = File::open(&path)?;
-
-    match filetype {
-        Some(FileType::Lib) => {
-            let mut file_u8: Vec<u8> = Vec::new();
-            for byte in file.bytes() {
-                file_u8.push(byte?)
-            }
-            self::renlib::old::parse_lib_legacy(file_u8)
-        }
-        _ => Err(ParseError::NotSupported),
     }
 }
 

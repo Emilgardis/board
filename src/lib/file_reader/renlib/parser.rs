@@ -1,189 +1,593 @@
-use crate::{move_node::{MoveGraph, MoveIndex}, board_logic::BoardMarker};
+use crate::{
+    board_logic::{BoardMarker, Point, Stone},
+    move_node::{self, MoveGraph, MoveIndex},
+};
 
 use super::Version;
 pub use super::{Command, CommandVariant};
 
-pub fn parse_v3x(
-    mut file: impl std::io::BufRead,
-    _version: Version,
-) -> Result<MoveGraph, color_eyre::eyre::Report> {
-    let mut graph = MoveGraph::new();
-    let mut buffer = Vec::with_capacity(1024);
-    let _size = file.read_to_end(&mut buffer)?;
-    let mut _cur_index: Option<MoveIndex> = None;
-    let mut _next_index: Option<MoveIndex> = None;
-    let mut _cur_root: Option<MoveIndex> = None;
-    let mut index = 0;
-    // No clue what this is
-    let mut _number = 0;
+#[cfg(test)]
+mod tests {
+    use test_log::test;
 
-    if _cur_root.is_none() {
-        let _ind = graph.new_root(BoardMarker::null_move());
-        _cur_index = Some(_ind);
-        _cur_root = Some(_ind);
-    } else {
-        unimplemented!("creating from existing graph is not implemented")
+    use crate::board_logic::Point;
+
+    use super::{super::*, *};
+
+    fn buf(b: &'static [u8]) -> impl BufRead {
+        b
     }
 
-    let check_root = true;
-    loop {
-        let marker = BoardMarker::from_pos_info(buffer[index], buffer[index + 1] as u16)?;
-        index += 2;
+    fn parse_v30(bytes: &'static [u8]) -> Result<Vec<(BoardMarker, Command)>, color_eyre::Report> {
+        let mut bytes = buf(bytes);
+        parse_v3x(&mut bytes, Version::V30)
+    }
 
-        if check_root && marker.point.is_null {
-            // Skip root.
-        } else if marker.point.is_valid() {
-            color_eyre::eyre::bail!("invalid point, for some reason");
+    macro_rules! p {
+        [$x:ident, $y:literal] => {
+            Point::new((stringify!($x).chars().next().unwrap() as u8 - b'A') as u32, 15-$y)
+        };
+    }
+
+    #[test]
+    fn start_move() -> Result<(), color_eyre::Report> {
+        assert_eq!(
+            parse_v30(&[0x78, 0x00])?,
+            [(
+                BoardMarker {
+                    point: p![H, 8],
+                    color: Stone::Empty,
+                    oneline_comment: None,
+                    multiline_comment: None,
+                    board_text: None,
+                    info: 0
+                },
+                Command(CommandVariant::empty())
+            )]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn basic() -> Result<(), color_eyre::Report> {
+        assert_eq!(
+            parse_v30(&[
+                0x78, 0x00, 0x68, 0x80, 0x66, 0x00, 0x49, 0x00, 0x58, 0x00, 0x79, 0x00, 0x69, 0x00,
+                0x7A, 0x00, 0x59, 0x00, 0x4A, 0x80, 0x5A, 0x40, 0x5A, 0x40, 0x69, 0xC0, 0x8A, 0x00,
+                0x69, 0x00, 0x8B, 0x00, 0x68, 0x00, 0x7B, 0x00, 0x7A, 0x00, 0x6B, 0x00, 0x58, 0x40,
+            ])?,
+            [
+                (
+                    BoardMarker {
+                        point: p![H, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![H, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::DOWN)
+                ),
+                (
+                    BoardMarker {
+                        point: p![F, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 11],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![H, 10],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![J, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 10],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![J, 11],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::DOWN)
+                ),
+                (
+                    BoardMarker {
+                        point: p![J, 10],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::RIGHT)
+                ),
+                (
+                    BoardMarker {
+                        point: p![J, 10],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::RIGHT)
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::DOWN | CommandVariant::RIGHT)
+                ),
+                (
+                    BoardMarker {
+                        point: p![J, 7],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![K, 7],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![H, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![K, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![J, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![K, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![H, 10],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::RIGHT)
+                )
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn comment() -> Result<(), color_eyre::Report> {
+        assert_eq!(
+            parse_v30(&[
+                0x78, 0x08, 0x08, 0x54, 0x68, 0x69, 0x73, 0x20, 0x63, 0x6F, 0x6D, 0x6D, 0x65, 0x6E,
+                0x74, 0x20, 0x6F, 0x6E, 0x20, 0x37, 0x38, 0x00, 0x87, 0x48, 0x08, 0x49, 0x6D, 0x20,
+                0x66, 0x72, 0x6F, 0x6D, 0x20, 0x38, 0x37, 0x00, 0x0A,
+            ])?,
+            [
+                (
+                    BoardMarker {
+                        point: Point::from_byte(0x78)?,
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: Some("This comment on 78".to_owned()),
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::COMMENT)
+                ),
+                (
+                    BoardMarker {
+                        point: Point::from_byte(0x87)?,
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: Some("Im from 87".to_owned()),
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::RIGHT | CommandVariant::COMMENT)
+                )
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn simple() -> Result<(), color_eyre::Report> {
+        assert_eq!(
+            parse_v30(&[0x78, 0x00, 0x79, 0x40])?,
+            [
+                (
+                    BoardMarker {
+                        point: p![H, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::RIGHT)
+                )
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn board_marker() -> Result<(), color_eyre::Report> {
+        assert_eq!(
+            parse_v30(&[
+                0x78, 0x00, 0x68, 0xC3, 0x00, 0x01, 0x44, 0x00, 0x77, 0xC3, 0x00, 0x01, 0x42, 0x00,
+                0x79, 0xC3, 0x00, 0x01, 0x41, 0x00, 0x88, 0x43, 0x00, 0x01, 0x43, 0x00,
+            ])?,
+            [
+                (
+                    BoardMarker {
+                        point: p![H, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: None,
+                        info: 0
+                    },
+                    Command(CommandVariant::empty())
+                ),
+                (
+                    BoardMarker {
+                        point: p![H, 9],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: Some("D".to_owned()),
+                        info: 0
+                    },
+                    Command(
+                        CommandVariant::BOARDTEXT
+                            | CommandVariant::DOWN
+                            | CommandVariant::RIGHT
+                            | CommandVariant::NOMOVE
+                            | CommandVariant::EXTENSION
+                    )
+                ),
+                (
+                    BoardMarker {
+                        point: p![G, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: Some("B".to_owned()),
+                        info: 0
+                    },
+                    Command(
+                        CommandVariant::BOARDTEXT
+                            | CommandVariant::DOWN
+                            | CommandVariant::RIGHT
+                            | CommandVariant::NOMOVE
+                            | CommandVariant::EXTENSION
+                    )
+                ),
+                (
+                    BoardMarker {
+                        point: p![I, 8],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: Some("A".to_owned()),
+                        info: 0
+                    },
+                    Command(
+                        CommandVariant::BOARDTEXT
+                            | CommandVariant::DOWN
+                            | CommandVariant::RIGHT
+                            | CommandVariant::NOMOVE
+                            | CommandVariant::EXTENSION
+                    )
+                ),
+                (
+                    BoardMarker {
+                        point: p![H, 7],
+                        color: Stone::Empty,
+                        oneline_comment: None,
+                        multiline_comment: None,
+                        board_text: Some("C".to_owned()),
+                        info: 0
+                    },
+                    Command(
+                        CommandVariant::BOARDTEXT
+                            | CommandVariant::RIGHT
+                            | CommandVariant::NOMOVE
+                            | CommandVariant::EXTENSION
+                    )
+                )
+            ]
+        );
+        Ok(())
+    }
+}
+
+pub fn parse_v3x(
+    mut bytes: impl std::io::BufRead,
+    _version: Version,
+) -> Result<Vec<(BoardMarker, Command)>, color_eyre::eyre::Report> {
+    let mut vec = vec![];
+    let mut buf: [u8; 2] = [0, 0];
+
+    loop {
+        match bytes.read_exact(&mut buf) {
+            Ok(_) => (),
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::UnexpectedEof => break,
+                _ => todo!(),
+            },
+        }
+        tracing::debug!(buf = format_args!("{:#4X?}", buf));
+        let point = if let 0x00 = buf[0] {
+            Point::null()
         } else {
-            _number += 1;
-            _next_index = graph.get_variant(_cur_index.as_ref(), &marker.point)
+            Point::from_byte(buf[0])?
+        };
+        let mut mark = BoardMarker::new(point, Stone::Empty);
+        let command = Command::new(buf[1] as u32)?;
+
+        let command = if command.is_extension() {
+            bytes.read_exact(&mut buf)?;
+            tracing::debug!("extension: {:#4b}, {:#4b}", buf[0], buf[1]);
+            let mut cmd = command.0.bits & 0xFF;
+
+            cmd |= (((buf[0] as u32) << 8) | buf[1] as u32) << 8;
+            Command::new(cmd)?
+        } else {
+            command
+        };
+        tracing::debug!(?mark.point, ?command, "parsed");
+
+        if command.is_comment() {
+            let (one, multi) = parse_comments(&mut bytes)?;
+            mark.oneline_comment = one;
+            mark.multiline_comment = multi;
+            tracing::info!(?mark.oneline_comment, ?mark.multiline_comment);
+        }
+
+        if command.is_board_text() {
+            let board_text = parse_board_text(&mut bytes)?;
+            mark.board_text = Some(board_text)
+        }
+
+        tracing::info!(?mark, ?command, "evaluated");
+
+        vec.push((mark, command))
+    }
+    Ok(vec)
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ParseBoardTextError {
+    #[error("read from board text buffer failed")]
+    Io(#[from] std::io::Error),
+}
+
+fn parse_board_text(bytes: &mut impl std::io::BufRead) -> Result<String, ParseBoardTextError> {
+    // Board text is a null padded null-ending string, iff len % 2 == 1
+    // so: the string "AA\0" becomes "AA\0\0"
+
+    // TODO: Should be moved to be initialized once
+    let mut buf = vec![];
+
+    // this cannot be a read_until, as we need to do it in chunks of two.
+    let mut t_buf = [0; 2];
+    loop {
+        bytes.read_exact(&mut t_buf)?;
+        match t_buf {
+            [0, 0] => {
+                buf.push(0);
+            }
+            s => buf.extend(s),
+        }
+        if t_buf.contains(&0) {
+            break;
         }
     }
-    // let mut iter = file.bytes().peekable();
-    // if iter
-    //     .peek()
-    //     .filter(|&r| match r {
-    //         Ok(y) => &0x00 == y,
-    //         Err(_) => false,
-    //     })
-    //     .is_some()
-    // {
-    //     // No move start, ignore.
-    //     // TODO: Is this valid?
-    //     //iter.next();
-    //     tracing::info!("No start move");
-    // }
-    // // It should just work to do this sequentially and use move_graph functions, let's try that
-    // while let Some(byte) = iter.next() {
-    //     let byte = byte?;
-    //     let mut _cur_marker: Option<BoardMarker> = None;
-    //     let span = tracing::debug_span!("moving", byte = %format!("0x{:02x}", byte));
-    //     let _enter = span.enter();
-    //     if iter.peek().is_none() && byte == 0x0a {
-    //         // This is really wierd and shouldn't happen, will have to investigate
-    //         break;
-    //     }
-    //     let command = Command(iter.next().ok_or_else(|| {
-    //         ParseError::Other("Expected a command byte, got nothing".to_string())
-    //     })??);
-    //     let point = if let Ok(point) = byte_to_point(&byte) {
-    //         point
-    //     } else {
-    //         tracing::debug!("Nope");
-    //         Point::null()
-    //     };
-    //     tracing::info!(
-    //         "Point: {:?} Command: ({:x}) {:?} Previous Index: {:?}",
-    //         point,
-    //         command.0,
-    //         command.get_all(),
-    //         cur_index
-    //     );
-    //     let stone = if let Some(cur_index) = cur_index {
-    //         if graph.moves_to_root(cur_index) % 2 == 1 {
-    //             Stone::Black
-    //         } else {
-    //             Stone::White
-    //         }
-    //     } else {
-    //         Stone::Black
-    //     };
+    assert!(buf.len() > 1);
+    assert!(buf.last().unwrap() == &0);
 
-    //     if command.is_extension() {
-    //         let extension = (
-    //             iter.next().transpose()?.unwrap(),
-    //             iter.next().transpose()?.unwrap(),
-    //         );
-    //         tracing::info!("Extension: {:?}", extension);
-    //     }
+    Ok(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string())
+}
 
-    //     _cur_marker = Some(BoardMarker::new(point, stone));
-    //     if command.is_comment() {
-    //         tracing::info!("Parsing comment");
-    //         // Move into functon?
-    //         {
-    //             let mut title = Vec::new();
-    //             let mut comment = Vec::new();
+#[derive(thiserror::Error, Debug)]
+pub enum ParseCommentError {
+    #[error("read from comment buffer failed")]
+    Io(#[from] std::io::Error),
+}
 
-    //             // while !{
-    //             //     let this = &(iter.peek().ok_or_else(|| {
-    //             //         ParseError::Other("File ended while parsing title".to_string())
-    //             //     })?);
-    //             //     match this {
-    //             //         Ok(y) => &0x00 == y,
-    //             //         Err(_) => false,
-    //             //     }
-    //             // } {
-    //             //     title.push(iter.next().unwrap()?)
-    //             // }
+pub fn parse_comments(
+    mut bytes: impl std::io::BufRead,
+) -> Result<(Option<String>, Option<String>), ParseCommentError> {
+    // The comments are either:
+    //
+    // oneline + 0
+    // oneline + 8 + multiline + 0
+    // 8 + multiline + 0
+    // if the bytes are uneven, they will be padded with an extra 0, this is accounted for with out buffer read.
 
-    //             while let Some(byte) = iter.next().transpose()? {
-    //                 let byte = byte;
-    //                 if byte == 0x00 {
-    //                     break;
-    //                 }
-    //                 title.push(byte);
-    //             }
+    // TODO: Should be moved to be initialized once
+    let mut buf = vec![];
 
-    //             while let Some(byte) = iter.next().transpose()? {
-    //                 let byte = byte;
-    //                 if byte == 0x00 {
-    //                     break;
-    //                 }
-    //                 comment.push(byte);
-    //             }
+    let mut one = None;
+    let mut multi = None;
 
-    //             let title = String::from_utf8_lossy(title.as_slice());
-    //             let comment = String::from_utf8_lossy(comment.as_slice());
-    //             tracing::debug!(%comment, %title,);
-    //             // Marker has to be something
-    //             if let Some(m) = _cur_marker.as_mut() {
-    //                 m.set_comment(format!("Title: {}, Comment: {}", title, comment,))
-    //             }
-    //         }
-    //         iter.next(); // Skip the 0x00
-    //     }
-    //     if cur_index.is_none() {
-    //         prev_index = cur_index;
-    //         cur_index = Some(graph.new_root(_cur_marker.clone().unwrap()));
-    //         cur_root = cur_index;
-    //     } else if !(command.is_down() && command.is_right()) {
-    //         prev_index = cur_index;
-    //         cur_index = Some(graph.add_move(cur_index.unwrap(), _cur_marker.clone().unwrap()));
-    //     }
-    //     if command.is_right() && command.is_down() {
-    //         //tracing::info!("Popped markeds");
-    //         //graph.marked_for_branch.pop();
-    //         prev_index = cur_index;
-    //         // This branch leaf is alone, go down immidiatly
-    //         cur_index = graph.down_to_branch(cur_index.unwrap());
-    //         graph.add_move(cur_index.unwrap(), _cur_marker.unwrap());
-    //     } else {
-    //         if command.is_right() {
-    //             prev_index = None;
-    //             cur_index = graph.down_to_branch(cur_index.unwrap());
-    //             tracing::info!("Branching down to, res: {:?}", cur_index);
-    //         }
-    //         if command.is_down() {
-    //             tracing::info!(
-    //                 "Marking {:?} as branch.",
-    //                 prev_index.unwrap_or_else(|| cur_root.unwrap())
-    //             );
-    //             graph.mark_for_branch(prev_index.unwrap_or_else(|| cur_root.unwrap()));
-    //         }
-    //     }
+    // this cannot be a read_until, as we need to do it in chunks of two.
+    let mut t_buf = [0; 2];
+    loop {
+        bytes.read_exact(&mut t_buf)?;
+        match t_buf {
+            [0, 0] => {
+                buf.push(0);
+            }
+            s => buf.extend(s),
+        }
+        if t_buf.contains(&0) {
+            break;
+        }
+    }
+    assert!(buf.len() > 1);
 
-    //     if command.is_no_move() {
-    //         if let Some(byte) = iter.next() {
-    //             let byte = byte?;
-    //             if byte != 0x00 {
-    //                 return Err(ParseError::Other(format!(
-    //                     "Expected 0x00, got 0x{:x} while skiping for no-move",
-    //                     byte
-    //                 )));
-    //             }
-    //         }
-    //     }
-    // }
-    Ok(graph)
+    if &0x08 == buf.first().unwrap() {
+        // FIXME: Could be empty
+        multi = Some(String::from_utf8_lossy(&buf[1..buf.len() - 1]).to_string())
+    } else if let Some(pos) = buf.iter().position(|b| *b == 0x08) {
+        one = Some(String::from_utf8_lossy(&buf[0..pos]).to_string());
+        multi = Some(String::from_utf8_lossy(&buf[(pos + 1)..buf.len() - 1]).to_string());
+    } else {
+        one = Some(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string());
+    }
+
+    Ok((one, multi))
 }

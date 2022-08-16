@@ -25,16 +25,3 @@ fn large_file() {
     tracing::info!("\n{:?}", graph);
     panic!("intended!");
 }
-
-#[ignore]
-#[test]
-fn null_move() {
-    let graph: move_node::MoveGraph =
-        match file_reader::open_file(Path::new("tests/null_move2.lib")) {
-            Ok(val) => val,
-            Err(err) => panic!("Couldn't parse file! Error: {:?}.", err),
-        };
-
-    tracing::info!("\n{:?}", graph);
-    panic!("intended!");
-}

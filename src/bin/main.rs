@@ -5,7 +5,7 @@ use std::path::Path;
 
 use color_eyre::eyre::WrapErr;
 use renju::board_logic;
-use renju::file_reader::{open_file, open_file_legacy};
+use renju::file_reader::open_file;
 use renju::move_node::{MoveGraph, MoveIndex};
 
 fn main() -> Result<(), color_eyre::Report> {
@@ -20,22 +20,12 @@ fn main() -> Result<(), color_eyre::Report> {
                 .required(true),
         )
         .arg(Arg::new("output").short('o').help("File to output to"))
-        .arg(
-            Arg::new("legacy")
-                .short('l')
-                .takes_value(false)
-                .help("Parse lib with legacy code"),
-        )
         .get_matches();
 
     let path = Path::new(matches.value_of("file").unwrap());
     tracing::info!("File: {:?}", path);
-    let graph = if !matches.is_present("legacy") {
-        open_file(path).wrap_err_with(|| format!("while parsing file {:?}", path))?
-    } else {
-        open_file_legacy(path)
-            .wrap_err_with(|| format!("while parsing file {:?} in lagacy mode", path))?
-    };
+    let graph = open_file(path).wrap_err_with(|| format!("while parsing file {:?}", path))?;
+
     eprintln!("{:?}", graph);
     //let mut file = OpenOptions::new().write(true).create(true).open(format!("{}.dot",path.file_stem().unwrap().to_str().unwrap())).expect("Couldn't create .dot file");
     //write!(file, "{:?}", graph).chain_err(|| "while writing to file");
@@ -61,11 +51,15 @@ fn main() -> Result<(), color_eyre::Report> {
                 eprintln!("{}", board.board);
                 if let Some(last_point) = board.last_move {
                     if let Some(&board_logic::BoardMarker {
-                        comment: ref comment_opt,
+                        multiline_comment: ref multiline_comment_opt,
+                        oneline_comment: ref oneline_comment_opt,
                         ..
                     }) = board.get(last_point)
                     {
-                        if let Some(ref comment) = comment_opt {
+                        if let Some(ref comment) = oneline_comment_opt {
+                            tracing::info!("{}", comment)
+                        }
+                        if let Some(ref comment) = multiline_comment_opt {
                             tracing::info!("{}", comment)
                         }
                     } else {
