@@ -1,13 +1,16 @@
 //! Functions for handling renlib files.
 use bitflags::bitflags;
 
-use crate::errors::*;
+use crate::{
+    board_logic::{BoardMarker, Stone},
+    errors::*,
+};
 use std::{
     convert::{TryFrom, TryInto},
     io::{BufRead, Read},
 };
 
-use crate::move_node::MoveGraph;
+use crate::board::Board;
 
 pub mod parser;
 
@@ -103,16 +106,59 @@ impl Command {
     pub fn is_board_text(&self) -> bool {
         self.flag(CommandVariant::BOARDTEXT)
     }
+
+    fn is_move(&self) -> bool {
+        !self.is_no_move()
+    }
 }
 
-pub fn parse_lib(mut file: impl BufRead) -> Result<MoveGraph, color_eyre::Report> {
-    let vec = match read_header(&mut file)? {
+pub fn parse_lib(mut file: impl BufRead, board: &mut Board) -> Result<(), color_eyre::Report> {
+    let moves = match read_header(&mut file)? {
         v @ (Version::V30 | Version::V34) => parser::parse_v3x(file, v),
     }?;
-    let mut graph = MoveGraph::new();
+    let mut new_moves = 0;
+    let mut first_move = None;
+    let mut last_move_black = false;
+    let mut stack = vec![];
     // An adaptation of CRenLibDoc::AddLibrary
-    todo!();
-    Ok(graph)
+    board.move_to_root();
+    let mut cur_move = board.current_move();
+
+    for mut marker in moves {
+        if marker.command.is_move() {
+            marker.color = if last_move_black {
+                Stone::White
+            } else {
+                Stone::Black
+            };
+            last_move_black = !last_move_black;
+        }
+        let next_move = board.get_variant(&cur_move, &marker.point);
+        if let Some(next) = next_move {
+            cur_move = next;
+        } else {
+            let next = board.add_move(cur_move, marker.clone());
+            cur_move = next;
+            if marker.command.is_move() {
+                new_moves += 1;
+                if first_move.is_none() {
+                    first_move = Some(cur_move)
+                }
+            }
+        }
+        board.add_move_to_move_list(cur_move);
+        if marker.command.is_down() {
+            stack.push(board.index())
+        }
+
+        if marker.command.is_right() && !stack.is_empty() {
+            // FIXME: Proper error pls
+            let top = stack.pop().expect("stack should not be empty");
+            board.set_index(top - 1)?;
+            cur_move = board.current_move();
+        }
+    }
+    Ok(())
 }
 
 pub fn read_header(mut file: impl BufRead) -> Result<Version, ParseError> {

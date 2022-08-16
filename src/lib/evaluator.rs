@@ -12,7 +12,7 @@
 //! # Implementation.
 //!
 
-use crate::board_logic::{Board, BoardMarker, Stone};
+use crate::board_logic::{DisplayBoard, BoardMarker, Stone};
 
 use std::collections::BTreeSet;
 use std::slice::Iter;
@@ -73,7 +73,7 @@ impl Line {
     }
 }
 
-pub fn is_five_dir(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
+pub fn is_five_dir(board: &DisplayBoard, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
     let line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
@@ -98,7 +98,7 @@ pub fn is_five_dir(board: &Board, marker: &BoardMarker, direction: Direction) ->
     }
 }
 
-pub fn is_five(board: &Board, marker: &BoardMarker) -> Result<bool, ()> {
+pub fn is_five(board: &DisplayBoard, marker: &BoardMarker) -> Result<bool, ()> {
     for dir in Direction::iter() {
         match is_five_dir(board, marker, *dir) {
             Ok(val) => {
@@ -112,7 +112,7 @@ pub fn is_five(board: &Board, marker: &BoardMarker) -> Result<bool, ()> {
     Ok(false)
 }
 
-pub fn is_three_dir(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
+pub fn is_three_dir(board: &DisplayBoard, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
     let _line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
@@ -120,7 +120,7 @@ pub fn is_three_dir(board: &Board, marker: &BoardMarker, direction: Direction) -
     unimplemented!()
 }
 
-pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
+pub fn is_three(board: &DisplayBoard, marker: BoardMarker) -> Result<bool, ()> {
     for dir in Direction::iter() {
         match is_three_dir(board, &marker, *dir) {
             Ok(val) => {
@@ -133,7 +133,7 @@ pub fn is_three(board: &Board, marker: BoardMarker) -> Result<bool, ()> {
     }
     Ok(false)
 }
-pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Result<Line, ()> {
+pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction) -> Result<Line, ()> {
     if marker.point.is_null {
         return Err(());
     }
@@ -265,12 +265,12 @@ pub fn get_line(board: &Board, marker: &BoardMarker, direction: Direction) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board_logic::{Board, BoardMarker, Point, Stone};
+    use crate::board_logic::{DisplayBoard, BoardMarker, Point, Stone};
 
     #[test]
     #[ignore]
     fn check_if_illegal_move() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         for pos in [7 * 15 + 7, 7 * 15 + 6, 6 * 15 + 6, 5 * 15 + 7].iter() {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn is_horizontal_five_in_a_row() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         let y = 7u32;
         let p1 = BoardMarker::new(Point::new(4, y), Stone::Black);
         for x in 0..4 {
@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn is_vertical_five_in_a_row() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         let x = 7u32;
         let p1 = BoardMarker::new(Point::new(x, 4), Stone::Black);
         for y in 0..4 {
@@ -321,7 +321,7 @@ mod tests {
     }
     #[test]
     fn is_diagonal_five_in_a_row() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         // A diagonal is '\'
         for pos in [2u32 + 7 * 15, 3u32 + 8 * 15, 4u32 + 9 * 15, 5u32 + 10 * 15].iter() {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
@@ -349,7 +349,7 @@ mod tests {
     }
     #[test]
     fn is_anti_diagonal_five_in_a_row() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         for pos in [6u32 + 6 * 15, 5u32 + 7 * 15, 4u32 + 8 * 15, 3u32 + 9 * 15].iter() {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }

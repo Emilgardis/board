@@ -12,7 +12,7 @@ use std::path::Path;
 #[ignore]
 /// This crashes on current implementation of `move_node`.
 fn large_file() {
-    let graph: move_node::MoveGraph = match file_reader::open_file(Path::new(
+    let graph: board::Board = match file_reader::open_file(Path::new(
         "tests/norelease_all_games.lib",
     )) {
         Ok(val) => val,

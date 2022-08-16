@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
 use crate::errors::*;
+use crate::file_reader::renlib::Command;
+use crate::file_reader::renlib::CommandVariant;
 use std::char;
 use std::fmt;
 use std::iter::FromIterator;
@@ -85,7 +87,7 @@ pub struct BoardMarker {
     pub oneline_comment: Option<String>,
     pub multiline_comment: Option<String>,
     pub board_text: Option<String>,
-    pub info: u16, // TODO: Frank, UINT doesn't have enough bits for 0xffff00
+    pub command: Command, // TODO: Frank, UINT doesn't have enough bits for 0xffff00
 }
 
 impl BoardMarker {
@@ -96,7 +98,7 @@ impl BoardMarker {
             oneline_comment: None,
             multiline_comment: None,
             board_text: None,
-            info: 0,
+            command: Command::new(0).unwrap(),
         }
     }
 
@@ -104,23 +106,21 @@ impl BoardMarker {
         BoardMarker::new(Point::null(), Stone::Empty)
     }
 
-    pub fn from_pos_info(pos: u8, info: u16) -> Result<BoardMarker, color_eyre::eyre::Error> {
+    pub fn from_pos_info(pos: u8, info: u32) -> Result<BoardMarker, color_eyre::eyre::Error> {
         Ok(BoardMarker {
             point: Point::from_byte(pos)?,
             color: Stone::Empty,
             oneline_comment: None,
             multiline_comment: None,
             board_text: None,
-            info,
+            command: Command::new(info)?,
         })
     }
     // Are the following functions needed?
     pub fn set_pos(&mut self, point: &Point) {
         self.point = *point;
     }
-    pub fn add_info(&mut self, info: u8) {
-        self.info = (self.info & 0xFF00) | info as u16;
-    }
+
     pub fn set_oneline_comment(&mut self, comment: String) {
         self.oneline_comment = if !comment.is_empty() {
             Some(comment)
@@ -158,7 +158,7 @@ impl fmt::Debug for BoardMarker {
                 .field("oneline_comment", &self.oneline_comment)
                 .field("multiline_comment", &self.multiline_comment)
                 .field("board_text", &self.board_text)
-                .field("info", &self.info)
+                .field("command", &self.command)
                 .finish()
         }
     }
@@ -255,7 +255,7 @@ impl DerefMut for BoardArr {
 
 #[derive(Debug)]
 /// Board type. Holds the data for a game.
-pub struct Board {
+pub struct DisplayBoard {
     pub boardsize: u32,
     pub last_move: Option<Point>,
     pub board: BoardArr,
@@ -290,20 +290,20 @@ impl fmt::Display for BoardArr {
     }
 }
 
-impl Board {
-    /// Makes a new Board of size `boardsize`.
+impl DisplayBoard {
+    /// Makes a new DisplayBoard of size `boardsize`.
     ///
     /// # Examples
     /// ```
-    /// # use renju_board::board_logic::Board;
-    /// let mut board = Board::new(15);
+    /// # use renju_board::board_logic:Display:Board;
+    /// let mut board = DisplayBoard::new(15);
     /// ```
-    pub fn new(boardsize: u32) -> Board {
+    pub fn new(boardsize: u32) -> DisplayBoard {
         let board: BoardArr = (0..boardsize * boardsize)
             .map(|idx| BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty))
             .collect();
 
-        Board {
+        DisplayBoard {
             boardsize,
             last_move: None,
             board,
@@ -366,7 +366,7 @@ mod tests {
     use super::*;
     #[test]
     fn check_if_board_works() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         assert_eq!(board.board.len(), 15 * 15);
         let p = Point::new(0, 0);
         board.set_point(p, Stone::White);
@@ -380,7 +380,7 @@ mod tests {
 
     #[test]
     fn clear_board() {
-        let mut board = Board::new(15);
+        let mut board = DisplayBoard::new(15);
         let p = Point::new(7, 7);
         board.set_point(p, Stone::White);
         tracing::info!("Board:\n{}", board.board);

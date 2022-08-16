@@ -1,6 +1,6 @@
 use crate::{
+    board::{self, Board, MoveIndex},
     board_logic::{BoardMarker, Point, Stone},
-    move_node::{self, MoveGraph, MoveIndex},
 };
 
 use super::Version;
@@ -18,7 +18,7 @@ mod tests {
         b
     }
 
-    fn parse_v30(bytes: &'static [u8]) -> Result<Vec<(BoardMarker, Command)>, color_eyre::Report> {
+    fn parse_v30(bytes: &'static [u8]) -> Result<Vec<BoardMarker>, color_eyre::Report> {
         let mut bytes = buf(bytes);
         parse_v3x(&mut bytes, Version::V30)
     }
@@ -33,17 +33,14 @@ mod tests {
     fn start_move() -> Result<(), color_eyre::Report> {
         assert_eq!(
             parse_v30(&[0x78, 0x00])?,
-            [(
-                BoardMarker {
-                    point: p![H, 8],
-                    color: Stone::Empty,
-                    oneline_comment: None,
-                    multiline_comment: None,
-                    board_text: None,
-                    info: 0
-                },
-                Command(CommandVariant::empty())
-            )]
+            [BoardMarker {
+                point: p![H, 8],
+                color: Stone::Empty,
+                oneline_comment: None,
+                multiline_comment: None,
+                board_text: None,
+                command: Command(CommandVariant::empty()),
+            },]
         );
         Ok(())
     }
@@ -57,237 +54,111 @@ mod tests {
                 0x69, 0x00, 0x8B, 0x00, 0x68, 0x00, 0x7B, 0x00, 0x7A, 0x00, 0x6B, 0x00, 0x58, 0x40,
             ])?,
             [
-                (
-                    BoardMarker {
-                        point: p![H, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![H, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::DOWN)
-                ),
-                (
-                    BoardMarker {
-                        point: p![F, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 11],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![H, 10],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![J, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 10],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![J, 11],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::DOWN)
-                ),
-                (
-                    BoardMarker {
-                        point: p![J, 10],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::RIGHT)
-                ),
-                (
-                    BoardMarker {
-                        point: p![J, 10],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::RIGHT)
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::DOWN | CommandVariant::RIGHT)
-                ),
-                (
-                    BoardMarker {
-                        point: p![J, 7],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![K, 7],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![H, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![K, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![J, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![K, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![H, 10],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::RIGHT)
-                )
+                BoardMarker {
+                    point: p![H, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![H, 9],
+                    command: Command(CommandVariant::DOWN),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![F, 9],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 11],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![H, 10],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 9],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![J, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 10],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![J, 11],
+                    command: Command(CommandVariant::DOWN),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![J, 10],
+                    command: Command(CommandVariant::RIGHT),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![J, 10],
+                    command: Command(CommandVariant::RIGHT),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 9],
+                    command: Command(CommandVariant::DOWN | CommandVariant::RIGHT),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![J, 7],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 9],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![K, 7],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![H, 9],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![K, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![J, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![K, 9],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![H, 10],
+                    command: Command(CommandVariant::RIGHT),
+                    ..BoardMarker::null_move()
+                }
             ]
         );
         Ok(())
@@ -302,28 +173,22 @@ mod tests {
                 0x66, 0x72, 0x6F, 0x6D, 0x20, 0x38, 0x37, 0x00, 0x0A,
             ])?,
             [
-                (
-                    BoardMarker {
-                        point: Point::from_byte(0x78)?,
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: Some("This comment on 78".to_owned()),
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::COMMENT)
-                ),
-                (
-                    BoardMarker {
-                        point: Point::from_byte(0x87)?,
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: Some("Im from 87".to_owned()),
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::RIGHT | CommandVariant::COMMENT)
-                )
+                BoardMarker {
+                    point: Point::from_byte(0x78)?,
+                    color: Stone::Empty,
+                    oneline_comment: None,
+                    multiline_comment: Some("This comment on 78".to_owned()),
+                    board_text: None,
+                    command: Command(CommandVariant::COMMENT)
+                },
+                BoardMarker {
+                    point: Point::from_byte(0x87)?,
+                    color: Stone::Empty,
+                    oneline_comment: None,
+                    multiline_comment: Some("Im from 87".to_owned()),
+                    board_text: None,
+                    command: Command(CommandVariant::RIGHT | CommandVariant::COMMENT)
+                }
             ]
         );
         Ok(())
@@ -334,28 +199,16 @@ mod tests {
         assert_eq!(
             parse_v30(&[0x78, 0x00, 0x79, 0x40])?,
             [
-                (
-                    BoardMarker {
-                        point: p![H, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::RIGHT)
-                )
+                BoardMarker {
+                    point: p![H, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 8],
+                    command: Command(CommandVariant::RIGHT),
+                    ..BoardMarker::null_move()
+                }
             ]
         );
         Ok(())
@@ -369,84 +222,58 @@ mod tests {
                 0x79, 0xC3, 0x00, 0x01, 0x41, 0x00, 0x88, 0x43, 0x00, 0x01, 0x43, 0x00,
             ])?,
             [
-                (
-                    BoardMarker {
-                        point: p![H, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: None,
-                        info: 0
-                    },
-                    Command(CommandVariant::empty())
-                ),
-                (
-                    BoardMarker {
-                        point: p![H, 9],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: Some("D".to_owned()),
-                        info: 0
-                    },
-                    Command(
+                BoardMarker {
+                    point: p![H, 8],
+                    command: Command(CommandVariant::empty()),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![H, 9],
+                    board_text: Some("D".to_owned()),
+                    command: Command(
                         CommandVariant::BOARDTEXT
                             | CommandVariant::DOWN
                             | CommandVariant::RIGHT
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
-                    )
-                ),
-                (
-                    BoardMarker {
-                        point: p![G, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: Some("B".to_owned()),
-                        info: 0
-                    },
-                    Command(
+                    ),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![G, 8],
+                    board_text: Some("B".to_owned()),
+                    command: Command(
                         CommandVariant::BOARDTEXT
                             | CommandVariant::DOWN
                             | CommandVariant::RIGHT
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
-                    )
-                ),
-                (
-                    BoardMarker {
-                        point: p![I, 8],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: Some("A".to_owned()),
-                        info: 0
-                    },
-                    Command(
+                    ),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![I, 8],
+                    board_text: Some("A".to_owned()),
+                    command: Command(
                         CommandVariant::BOARDTEXT
                             | CommandVariant::DOWN
                             | CommandVariant::RIGHT
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
-                    )
-                ),
-                (
-                    BoardMarker {
-                        point: p![H, 7],
-                        color: Stone::Empty,
-                        oneline_comment: None,
-                        multiline_comment: None,
-                        board_text: Some("C".to_owned()),
-                        info: 0
-                    },
-                    Command(
+                    ),
+                    ..BoardMarker::null_move()
+                },
+                BoardMarker {
+                    point: p![H, 7],
+                    board_text: Some("C".to_owned()),
+                    command: Command(
                         CommandVariant::BOARDTEXT
                             | CommandVariant::RIGHT
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
-                    )
-                )
+                    ),
+                    ..BoardMarker::null_move()
+                }
             ]
         );
         Ok(())
@@ -456,7 +283,7 @@ mod tests {
 pub fn parse_v3x(
     mut bytes: impl std::io::BufRead,
     _version: Version,
-) -> Result<Vec<(BoardMarker, Command)>, color_eyre::eyre::Report> {
+) -> Result<Vec<BoardMarker>, color_eyre::eyre::Report> {
     let mut vec = vec![];
     let mut buf: [u8; 2] = [0, 0];
 
@@ -493,12 +320,12 @@ pub fn parse_v3x(
             let (one, multi) = parse_comments(&mut bytes)?;
             mark.oneline_comment = one;
             mark.multiline_comment = multi;
-            tracing::info!(?mark.oneline_comment, ?mark.multiline_comment);
+            tracing::debug!(?mark.oneline_comment, ?mark.multiline_comment);
         } else if command.is_old_comment() {
             let (one, multi) = parse_old_comments(&mut bytes)?;
             mark.oneline_comment = one;
             mark.multiline_comment = multi;
-            tracing::info!(?mark.oneline_comment, ?mark.multiline_comment);
+            tracing::debug!(?mark.oneline_comment, ?mark.multiline_comment);
         }
 
         if command.is_board_text() {
@@ -507,8 +334,8 @@ pub fn parse_v3x(
         }
 
         tracing::info!(?mark, ?command, "evaluated");
-
-        vec.push((mark, command))
+        mark.command = command;
+        vec.push(mark)
     }
     Ok(vec)
 }

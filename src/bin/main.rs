@@ -6,7 +6,7 @@ use std::path::Path;
 use color_eyre::eyre::WrapErr;
 use renju::board_logic;
 use renju::file_reader::open_file;
-use renju::move_node::{MoveGraph, MoveIndex};
+use renju::board::{Board, MoveIndex};
 
 fn main() -> Result<(), color_eyre::Report> {
     let _ = dotenv::dotenv();
@@ -73,6 +73,6 @@ fn main() -> Result<(), color_eyre::Report> {
     }
 }
 
-fn traverse(graph: &MoveGraph, index: MoveIndex) -> Result<board_logic::Board, ParseError> {
+fn traverse(graph: &Board, index: MoveIndex) -> Result<board_logic::DisplayBoard, ParseError> {
     graph.as_board(&index)
 }

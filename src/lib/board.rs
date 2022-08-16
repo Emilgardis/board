@@ -1,4 +1,4 @@
-use crate::board_logic::{Board, BoardMarker, Point};
+use crate::board_logic::{BoardMarker, DisplayBoard, Point};
 use crate::errors::ParseError;
 use daggy;
 use daggy::Walker;
@@ -75,39 +75,53 @@ impl FromStr for MoveIndex {
     }
 }
 
-pub struct MoveGraph {
+pub struct Board {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
     pub marked_for_branch: Vec<NodeIndex>,
+    /// List of moves currently done
+    move_list: Vec<MoveIndex>,
+    index: usize,
 }
 
-impl MoveGraph {
-    pub fn new() -> MoveGraph {
-        MoveGraph {
+impl Board {
+    pub fn new() -> Board {
+        let mut board = Board {
             graph: daggy::Dag::with_capacity(255, 255),
             marked_for_branch: vec![],
-        }
+            move_list: vec![],
+            index: 0,
+        };
+
+        let root = board.new_root(BoardMarker::null_move());
+        board.move_list.push(root);
+        board
     }
 
-    pub fn new_root(&mut self, marker: BoardMarker) -> MoveIndex {
+    fn new_root(&mut self, marker: BoardMarker) -> MoveIndex {
         MoveIndex::new_node(self.graph.add_node(marker))
     }
+
     pub fn add_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
         MoveIndex::new(self.graph.add_child(parent.node_index, 0, marker))
     }
-    // Mark as deprecated
-    pub fn get_marker(&self, node: MoveIndex) -> Option<&BoardMarker> {
-        self.graph.node_weight(node.node_index)
+    pub fn add_move_to_move_list(&mut self, index: MoveIndex) {
+        self.move_list.push(index);
+        self.increment();
     }
+
     pub fn get_move_mut(&mut self, node: MoveIndex) -> Option<&mut BoardMarker> {
         self.graph.node_weight_mut(node.node_index)
     }
+
     pub fn get_move(&self, node: MoveIndex) -> Option<&BoardMarker> {
         self.graph.node_weight(node.node_index)
     }
+
     pub fn rm_move(&mut self, node: MoveIndex) -> Option<BoardMarker> {
         self.graph.remove_node(node.node_index)
     }
-    pub fn get_children(&self, parent: MoveIndex) -> Vec<MoveIndex> {
+
+    pub fn get_children(&self, parent: &MoveIndex) -> Vec<MoveIndex> {
         let mut result: Vec<MoveIndex> = Vec::new();
         for child in self.graph.children(parent.node_index).iter(&self.graph) {
             result.push(MoveIndex::new(child));
@@ -128,7 +142,7 @@ impl MoveGraph {
     pub fn get_siblings(&self, child: &MoveIndex) -> Vec<MoveIndex> {
         let parent_opt = self.get_parent(child);
         match parent_opt {
-            Some(parent) => self.get_children(parent), // Not ideal, should not really return the original child.
+            Some(parent) => self.get_children(&parent), // Not ideal, should not really return the original child.
             None => Vec::new(),
         }
     }
@@ -165,10 +179,10 @@ impl MoveGraph {
     }
 
     /// Returns the board as it would look like when end_node was played.
-    pub fn as_board(&self, end_node: &MoveIndex) -> Result<Board, ParseError> {
+    pub fn as_board(&self, end_node: &MoveIndex) -> Result<DisplayBoard, ParseError> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
         move_list.push(*end_node);
-        let mut board: Board = Board::new(15);
+        let mut board: DisplayBoard = DisplayBoard::new(15);
         for index_marker in move_list {
             board.set(match self.get_move(index_marker) {
                 Some(val) => val.clone(),
@@ -188,13 +202,13 @@ impl MoveGraph {
     /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
     ///
     /// Returns the children that were walked  and the children that caused the branch, if any.
-    pub fn up_to_branch(&self, node: MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
+    pub fn up_to_branch(&self, node: &MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
         // Check if we should wrap the result in an option.
         let mut branch_decendants: Vec<MoveIndex> = Vec::new();
         let mut children = self.get_children(node);
         while children.len() == 1 {
             branch_decendants.push(children[0]); // Do we need to clone? FIXME
-            children = self.get_children(children[0]);
+            children = self.get_children(&children[0]);
         }
         (branch_decendants, children)
     }
@@ -248,28 +262,92 @@ impl MoveGraph {
         self.marked_for_branch.push(node.node_index);
     }
 
-    pub fn get_variant(&self, cur_index: Option<&MoveIndex>, point: &Point) -> Option<MoveIndex> {
-        // Confusion, this searches the nodes, looking for a down command on the same position, or else, looks for a right with the same position. Why? I don't know. it's always to get the next move
-        if let Some(node) = cur_index {
-            if let Some(branch) = self.down_to_branch(node) {
-                if let Some(pos2) = self.graph.node_weight(branch.node_index) {
-                    if &pos2.point == point {
-                        return Some(branch);
+    // get the last branch.
+    pub fn get_down(&self, index: &MoveIndex) -> Option<MoveIndex> {
+        self.down_to_branch(index)
+    }
+
+    // get the last branch.
+    pub fn get_right(&self, index: &MoveIndex) -> Vec<MoveIndex> {
+        self.up_to_branch(index).0
+    }
+
+    pub fn get_variant(&self, index: &MoveIndex, point: &Point) -> Option<MoveIndex> {
+        // this function does something.
+        if let Some(node) = self.get_down(index) {
+            if let Some(BoardMarker { point: point2, .. }) = self.get_move(node) {
+                if point2 == point {
+                    return Some(node);
+                } else {
+                    let mut node = node.clone();
+                    for right in self.get_right(&node) {
+                        if let Some(BoardMarker { point: point2, .. }) = self.get_move(right) {
+                            if point2 == point {
+                                return Some(node);
+                            }
+                        }
                     }
                 }
             }
         }
         None
     }
+
+    pub fn current_move(&self) -> MoveIndex {
+        self.move_list
+            .get(self.index)
+            .expect("index should be up to date with move_list")
+            .clone()
+    }
+
+    pub fn get_root(&self) -> MoveIndex {
+        self.move_list
+            .get(0)
+            .expect("move_list should never be empty")
+            .clone()
+    }
+
+    pub fn next_move(&self) -> Option<MoveIndex> {
+        self.move_list.get(self.index + 1).cloned()
+    }
+
+    pub fn move_to_root(&mut self) {
+        self.index = 0;
+    }
+
+    fn decrement(&mut self) {
+        self.index = self.index.saturating_sub(1);
+    }
+    fn increment(&mut self) {
+        self.index = self.index.checked_add(1).unwrap();
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn set_index(&mut self, index: usize) -> Result<(), IndexOutOfBoundsError> {
+        if index <= self.move_list.len() {
+            self.index = index;
+            // self.move_list = self.move_list[..index].to_owned();
+            Ok(())
+        } else {
+            Err(IndexOutOfBoundsError)
+        }
+    }
 }
 
-impl Default for MoveGraph {
+#[derive(thiserror::Error, Clone, Debug)]
+#[error("index is out of bounds")]
+pub struct IndexOutOfBoundsError;
+
+impl Default for Board {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl fmt::Debug for MoveGraph {
+impl fmt::Debug for Board {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -286,7 +364,7 @@ impl fmt::Debug for MoveGraph {
 #[test]
 fn does_it_work() {
     use crate::board_logic::*;
-    let mut graph = MoveGraph::new();
+    let mut graph = Board::new();
     let a = graph.new_root(BoardMarker::new(Point::new(7, 7), Stone::Black));
     let b_1 = BoardMarker::new(Point::new(8, 7), Stone::White);
     let a_1 = graph.add_move(a, b_1.clone());

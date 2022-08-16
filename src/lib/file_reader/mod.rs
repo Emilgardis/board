@@ -6,9 +6,9 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
 
+use crate::board::{Board, MoveIndex};
 use crate::board_logic::{BoardMarker, Point, Stone};
 use crate::errors::*;
-use crate::move_node::{MoveGraph, MoveIndex};
 
 pub mod renlib;
 
@@ -124,7 +124,8 @@ pub enum FileErr {
 }
 
 #[tracing::instrument]
-pub fn open_file(path: &Path) -> Result<MoveGraph, color_eyre::Report> {
+pub fn open_file(path: &Path) -> Result<Board, color_eyre::Report> {
+    let mut board = Board::new();
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(&path)?;
@@ -145,16 +146,16 @@ pub fn open_file(path: &Path) -> Result<MoveGraph, color_eyre::Report> {
                     },
                 ));
             }
-            let mut root = MoveGraph::new();
-            let mut latest: MoveIndex = root.new_root(sequence[0].clone());
+            let root = board.get_root();
+            let mut latest: MoveIndex = board.add_move(root, sequence[0].clone());
             for marker_move in sequence.into_iter().skip(1) {
-                latest = root.add_move(latest, marker_move)
+                latest = board.add_move(latest, marker_move)
             }
-            Ok(root)
         }
-        Some(FileType::Lib) => renlib::parse_lib(std::io::BufReader::new(file)),
-        _ => Err(ParseError::NotSupported.into()),
+        Some(FileType::Lib) => renlib::parse_lib(std::io::BufReader::new(file), &mut board)?,
+        _ => return Err(ParseError::NotSupported.into()),
     }
+    Ok(board)
 }
 
 #[cfg(test)]
@@ -162,12 +163,12 @@ mod tests {
     use super::*;
     use std::path::Path;
 
-    use crate::move_node as mn;
+    use crate::board as mn;
 
     #[test]
     fn open_pos_file() {
         let file = Path::new("examplefiles/example.pos");
-        let graph: mn::MoveGraph = match open_file(file) {
+        let graph: mn::Board = match open_file(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("{:?}", desc),
         };
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn open_lib_file() {
         let file = Path::new("examplefiles/lib_documented.lib");
-        let graph: mn::MoveGraph = match open_file(file) {
+        let graph: mn::Board = match open_file(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };
