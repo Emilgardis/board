@@ -109,10 +109,13 @@ pub fn parse_lib(mut file: impl BufRead) -> Result<MoveGraph, color_eyre::Report
     let vec = match read_header(&mut file)? {
         v @ (Version::V30 | Version::V34) => parser::parse_v3x(file, v),
     }?;
-    todo!()
+    let mut graph = MoveGraph::new();
+    // An adaptation of CRenLibDoc::AddLibrary
+    todo!();
+    Ok(graph)
 }
 
-pub fn read_header(file: &mut impl BufRead) -> Result<Version, ParseError> {
+pub fn read_header(mut file: impl BufRead) -> Result<Version, ParseError> {
     let mut header = [0u8; 20];
     file.read_exact(&mut header)?;
     validate_lib(&header)

@@ -494,6 +494,11 @@ pub fn parse_v3x(
             mark.oneline_comment = one;
             mark.multiline_comment = multi;
             tracing::info!(?mark.oneline_comment, ?mark.multiline_comment);
+        } else if command.is_old_comment() {
+            let (one, multi) = parse_old_comments(&mut bytes)?;
+            mark.oneline_comment = one;
+            mark.multiline_comment = multi;
+            tracing::info!(?mark.oneline_comment, ?mark.multiline_comment);
         }
 
         if command.is_board_text() {
@@ -508,16 +513,7 @@ pub fn parse_v3x(
     Ok(vec)
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum ParseBoardTextError {
-    #[error("read from board text buffer failed")]
-    Io(#[from] std::io::Error),
-}
-
-fn parse_board_text(bytes: &mut impl std::io::BufRead) -> Result<String, ParseBoardTextError> {
-    // Board text is a null padded null-ending string, iff len % 2 == 1
-    // so: the string "AA\0" becomes "AA\0\0"
-
+pub fn read_text(mut bytes: impl std::io::BufRead) -> Result<Vec<u8>, std::io::Error> {
     // TODO: Should be moved to be initialized once
     let mut buf = vec![];
 
@@ -535,6 +531,21 @@ fn parse_board_text(bytes: &mut impl std::io::BufRead) -> Result<String, ParseBo
             break;
         }
     }
+    assert!(buf.len() > 1);
+    Ok(buf)
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum ParseBoardTextError {
+    #[error("read from board text buffer failed")]
+    Io(#[from] std::io::Error),
+}
+
+fn parse_board_text(mut bytes: impl std::io::BufRead) -> Result<String, ParseBoardTextError> {
+    // Board text is a null padded null-ending string, iff len % 2 == 1
+    // so: the string "AA\0" becomes "AA\0\0"
+
+    let buf = read_text(bytes)?;
     assert!(buf.len() > 1);
     assert!(buf.last().unwrap() == &0);
 
@@ -557,27 +568,10 @@ pub fn parse_comments(
     // 8 + multiline + 0
     // if the bytes are uneven, they will be padded with an extra 0, this is accounted for with out buffer read.
 
-    // TODO: Should be moved to be initialized once
-    let mut buf = vec![];
-
     let mut one = None;
     let mut multi = None;
 
-    // this cannot be a read_until, as we need to do it in chunks of two.
-    let mut t_buf = [0; 2];
-    loop {
-        bytes.read_exact(&mut t_buf)?;
-        match t_buf {
-            [0, 0] => {
-                buf.push(0);
-            }
-            s => buf.extend(s),
-        }
-        if t_buf.contains(&0) {
-            break;
-        }
-    }
-    assert!(buf.len() > 1);
+    let buf = read_text(bytes)?;
 
     if &0x08 == buf.first().unwrap() {
         // FIXME: Could be empty
@@ -589,5 +583,37 @@ pub fn parse_comments(
         one = Some(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string());
     }
 
+    Ok((one, multi))
+}
+
+pub fn parse_old_comments(
+    mut bytes: impl std::io::BufRead,
+) -> Result<(Option<String>, Option<String>), ParseCommentError> {
+    let mut one = None;
+    let mut multi = None;
+
+    let buf = read_text(bytes)?
+        .into_iter()
+        .map(|c| match c {
+            // FIXME: There has to be more like this, no?
+            b'}' => 0xE5,
+            b'{' => 0xE4,
+            b'|' => 0xF6,
+            b']' => 0xC5,
+            b'[' => 0xC4,
+            b'\\' => 0xD6,
+            other => other,
+        })
+        .collect::<Vec<_>>();
+
+    if &0x08 == buf.first().unwrap() {
+        // FIXME: Could be empty
+        multi = Some(String::from_utf8_lossy(&buf[1..buf.len() - 1]).to_string())
+    } else if let Some(pos) = buf.iter().position(|b| *b == 0x08) {
+        one = Some(String::from_utf8_lossy(&buf[0..pos]).to_string());
+        multi = Some(String::from_utf8_lossy(&buf[(pos + 1)..buf.len() - 1]).to_string());
+    } else {
+        one = Some(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string());
+    }
     Ok((one, multi))
 }
