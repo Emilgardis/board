@@ -197,8 +197,7 @@ where
                 event_meta.file().unwrap_or("<unknown>"),
                 event_meta
                     .line()
-                    .map(|n| n.to_string())
-                    .unwrap_or_else(|| String::from("?"))
+                    .map_or_else(|| String::from("?"), |n| n.to_string())
             )?;
         }
 

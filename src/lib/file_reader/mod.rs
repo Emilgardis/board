@@ -1,6 +1,6 @@
 //! Used for reading files.
 //!
-//! Currently only supports _.pos_ and _.lib_ (RenLib) files of version 3.04+.
+//! Currently only supports _.pos_ and _.lib_ (`RenLib`) files of version 3.04+.
 
 use std::fs::File;
 use std::io::prelude::*;
@@ -8,7 +8,7 @@ use std::path::Path;
 
 use crate::board::{Board, MoveIndex};
 use crate::board_logic::{BoardMarker, Point, Stone};
-use crate::errors::*;
+use crate::errors::ParseError;
 
 pub mod renlib;
 
@@ -109,10 +109,10 @@ pub enum FileType {
 }
 
 impl FileType {
-    fn new(path: &Path) -> Option<FileType> {
+    fn new(path: &Path) -> Option<Self> {
         match path.extension() {
-            Some(pos) if (pos == "pos") => Some(FileType::Pos),
-            Some(lib) if (lib == "lib") => Some(FileType::Lib),
+            Some(pos) if (pos == "pos") => Some(Self::Pos),
+            Some(lib) if (lib == "lib") => Some(Self::Lib),
             Some(_) => None,
             None => None,
         }
@@ -138,7 +138,7 @@ pub fn open_file(path: &Path) -> Result<Board, color_eyre::Report> {
             for (index, pos) in file.bytes().skip(1).enumerate() {
                 // First value should always be the number of moves.
                 sequence.push(BoardMarker::new(
-                    Point::from_1d(pos? as u32, 15),
+                    Point::from_1d(u32::from(pos?), 15),
                     if index % 2 == 0 {
                         Stone::Black
                     } else {

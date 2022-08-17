@@ -12,7 +12,7 @@
 //! # Implementation.
 //!
 
-use crate::board_logic::{DisplayBoard, BoardMarker, Stone};
+use crate::board_logic::{BoardMarker, DisplayBoard, Stone};
 
 use std::collections::BTreeSet;
 use std::slice::Iter;
@@ -24,7 +24,7 @@ pub enum Direction {
     AntiDiagonal,
 }
 impl Direction {
-    pub fn iter() -> Iter<'static, Direction> {
+    pub fn iter() -> Iter<'static, Self> {
         static DIRECTIONS: [Direction; 4] = [
             Direction::Horizontal,
             Direction::Diagonal,
@@ -39,16 +39,18 @@ impl Direction {
 pub struct Line(BTreeSet<i8>, BoardMarker, Direction);
 
 impl Line {
-    pub fn new(origin: &BoardMarker, dir: Direction) -> Line {
-        Line(BTreeSet::new(), origin.clone(), dir)
+    #[must_use]
+    pub fn new(origin: &BoardMarker, dir: Direction) -> Self {
+        Self(BTreeSet::new(), origin.clone(), dir)
     }
     pub fn push(&mut self, val: i8) {
         self.0.insert(val);
     }
+    #[must_use]
     pub fn conseq_line(&self) -> u8 {
         let mut line_cpy: BTreeSet<i8> = self.0.clone();
         line_cpy.insert(0);
-        let mut vec_line: Vec<i8> = line_cpy.iter().cloned().collect();
+        let mut vec_line: Vec<i8> = line_cpy.iter().copied().collect();
         // Count the length of the unbroken chain starting from origin (zeroth entry).
         let middle = vec_line.iter().position(|&x| x == 0).unwrap();
         let vecm_line: Vec<i8> = vec_line.split_off(middle);
@@ -73,7 +75,11 @@ impl Line {
     }
 }
 
-pub fn is_five_dir(board: &DisplayBoard, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
+pub fn is_five_dir(
+    board: &DisplayBoard,
+    marker: &BoardMarker,
+    direction: Direction,
+) -> Result<bool, ()> {
     let line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
@@ -112,7 +118,11 @@ pub fn is_five(board: &DisplayBoard, marker: &BoardMarker) -> Result<bool, ()> {
     Ok(false)
 }
 
-pub fn is_three_dir(board: &DisplayBoard, marker: &BoardMarker, direction: Direction) -> Result<bool, ()> {
+pub fn is_three_dir(
+    board: &DisplayBoard,
+    marker: &BoardMarker,
+    direction: Direction,
+) -> Result<bool, ()> {
     let _line: Line = match get_line(board, marker, direction) {
         Ok(val) => val,
         Err(_) => return Err(()),
@@ -133,14 +143,18 @@ pub fn is_three(board: &DisplayBoard, marker: BoardMarker) -> Result<bool, ()> {
     }
     Ok(false)
 }
-pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction) -> Result<Line, ()> {
+pub fn get_line(
+    board: &DisplayBoard,
+    marker: &BoardMarker,
+    direction: Direction,
+) -> Result<Line, ()> {
     if marker.point.is_null {
         return Err(());
     }
     match direction {
         Direction::Horizontal => {
             let mut line: Line = Line::new(marker, direction);
-            'right: for i in marker.point.x + 1..board.boardsize + 1 {
+            'right: for i in (marker.point.x + 1)..=board.boardsize {
                 match board.getxy(i, marker.point.y) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
@@ -168,7 +182,7 @@ pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction
         }
         Direction::Vertical => {
             let mut line: Line = Line::new(marker, direction);
-            'down: for i in marker.point.y + 1..board.boardsize + 1 {
+            'down: for i in (marker.point.y + 1)..=board.boardsize {
                 match board.getxy(marker.point.x, i) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
@@ -196,7 +210,7 @@ pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction
         }
         Direction::Diagonal => {
             let mut line: Line = Line::new(marker, direction);
-            'diag_down: for i in 1..board.boardsize + 1 {
+            'diag_down: for i in 1..=board.boardsize {
                 match board.getxy(marker.point.x + i, marker.point.y + i) {
                     Some(other_marker) => {
                         if other_marker.color == marker.color {
@@ -208,7 +222,7 @@ pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction
                     None => break 'diag_down, // We have hit the border. Don't err, this is expected.
                 }
             }
-            'diag_up: for i in 1..board.boardsize + 1 {
+            'diag_up: for i in 1..=board.boardsize {
                 match board.get_i32xy(
                     (marker.point.x as i32) - (i as i32),
                     (marker.point.y as i32) - (i as i32),
@@ -227,7 +241,7 @@ pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction
         }
         Direction::AntiDiagonal => {
             let mut line: Line = Line::new(marker, direction);
-            'anti_diag_down: for i in 1..board.boardsize + 1 {
+            'anti_diag_down: for i in 1..=board.boardsize {
                 match board.get_i32xy(
                     (marker.point.x as i32) - (i as i32),
                     (marker.point.y + i) as i32,
@@ -242,7 +256,7 @@ pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction
                     None => break 'anti_diag_down, // We have hit the border. Don't err, this is expected.
                 }
             }
-            'anti_diag_up: for i in 1..board.boardsize + 1 {
+            'anti_diag_up: for i in 1..=board.boardsize {
                 match board.get_i32xy(
                     (marker.point.x + i) as i32,
                     (marker.point.y as i32) - (i as i32),
@@ -265,13 +279,13 @@ pub fn get_line(board: &DisplayBoard, marker: &BoardMarker, direction: Direction
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::board_logic::{DisplayBoard, BoardMarker, Point, Stone};
+    use crate::board_logic::{BoardMarker, DisplayBoard, Point, Stone};
 
     #[test]
     #[ignore]
     fn check_if_illegal_move() {
         let mut board = DisplayBoard::new(15);
-        for pos in [7 * 15 + 7, 7 * 15 + 6, 6 * 15 + 6, 5 * 15 + 7].iter() {
+        for pos in &[7 * 15 + 7, 7 * 15 + 6, 6 * 15 + 6, 5 * 15 + 7] {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
 
@@ -323,18 +337,16 @@ mod tests {
     fn is_diagonal_five_in_a_row() {
         let mut board = DisplayBoard::new(15);
         // A diagonal is '\'
-        for pos in [2u32 + 7 * 15, 3u32 + 8 * 15, 4u32 + 9 * 15, 5u32 + 10 * 15].iter() {
+        for pos in &[2u32 + 7 * 15, 3u32 + 8 * 15, 4u32 + 9 * 15, 5u32 + 10 * 15] {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
         #[allow(clippy::identity_op)]
-        for pos in [
+        for pos in &[
             9u32, /*+ 0 * 15*/
             10u32 + 1 * 15,
             11u32 + 2 * 15,
             13u32 + 4 * 15,
-        ]
-        .iter()
-        {
+        ] {
             board.set_point(Point::from_1d(*pos, 15), Stone::White);
         }
         let p1 = BoardMarker::new(Point::from_1d(11 * 15 + 6, 15), Stone::Black);
@@ -350,7 +362,7 @@ mod tests {
     #[test]
     fn is_anti_diagonal_five_in_a_row() {
         let mut board = DisplayBoard::new(15);
-        for pos in [6u32 + 6 * 15, 5u32 + 7 * 15, 4u32 + 8 * 15, 3u32 + 9 * 15].iter() {
+        for pos in &[6u32 + 6 * 15, 5u32 + 7 * 15, 4u32 + 8 * 15, 3u32 + 9 * 15] {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);
         }
 

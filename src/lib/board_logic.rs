@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
-use crate::errors::*;
+use crate::errors::ParseError;
 use crate::file_reader::renlib::Command;
-use crate::file_reader::renlib::CommandVariant;
+
 use std::char;
 use std::fmt;
 use std::iter::FromIterator;
@@ -16,18 +16,19 @@ pub enum Stone {
 }
 
 impl Stone {
-    pub fn opposite(self) -> Stone {
+    #[must_use]
+    pub fn opposite(self) -> Self {
         match self {
-            Stone::Empty => Stone::Empty,
-            Stone::Black => Stone::White,
-            Stone::White => Stone::Black,
+            Self::Empty => Self::Empty,
+            Self::Black => Self::White,
+            Self::White => Self::Black,
             //_ => unreachable!(),
         }
     }
 }
 impl Default for Stone {
-    fn default() -> Stone {
-        Stone::Empty
+    fn default() -> Self {
+        Self::Empty
     }
 }
 
@@ -37,9 +38,9 @@ impl fmt::Display for Stone {
             f,
             "{}",
             match *self {
-                Stone::Empty => ".",
-                Stone::White => "O",
-                Stone::Black => "X",
+                Self::Empty => ".",
+                Self::White => "O",
+                Self::Black => "X",
             }
         )
     }
@@ -54,6 +55,7 @@ pub struct Point {
 }
 
 impl Point {
+    #[must_use]
     pub fn is_valid(&self) -> bool {
         let Point { x, y, .. } = *self;
         !((x != 0 || y != 0) && (!(1..=15).contains(&x) || y < 1 || y > 15))
@@ -91,8 +93,9 @@ pub struct BoardMarker {
 }
 
 impl BoardMarker {
-    pub fn new(point: Point, color: Stone) -> BoardMarker {
-        BoardMarker {
+    #[must_use]
+    pub fn new(point: Point, color: Stone) -> Self {
+        Self {
             point,
             color,
             oneline_comment: None,
@@ -102,12 +105,13 @@ impl BoardMarker {
         }
     }
 
-    pub fn null_move() -> BoardMarker {
-        BoardMarker::new(Point::null(), Stone::Empty)
+    #[must_use]
+    pub fn null_move() -> Self {
+        Self::new(Point::null(), Stone::Empty)
     }
 
-    pub fn from_pos_info(pos: u8, info: u32) -> Result<BoardMarker, color_eyre::eyre::Error> {
-        Ok(BoardMarker {
+    pub fn from_pos_info(pos: u8, info: u32) -> Result<Self, color_eyre::eyre::Error> {
+        Ok(Self {
             point: Point::from_byte(pos)?,
             color: Stone::Empty,
             oneline_comment: None,
@@ -185,41 +189,47 @@ impl fmt::Display for BoardMarker {
 impl Point {
     /// Get point from byte
     ///
-    /// This should be similar to `RenLib/Utils.cpp:633` CPoint Utils::PosToPoint(int pos), but with bitwise logic. Not sure what the check in `RenLib/RenLibDoc.cpp:2119` is
-    pub fn from_byte(byte: u8) -> Result<Point, ParseError> {
-        Ok(Point::new(
-            (match byte.checked_sub(1) {
-                Some(value) => value,
-                None => return Err(ParseError::Other("Underflowed position".to_string())),
-            } & 0x0f) as u32,
-            (byte >> 4) as u32,
+    /// This should be similar to `RenLib/Utils.cpp:633` `CPoint Utils::PosToPoint(int pos)`, but with bitwise logic. Not sure what the check in `RenLib/RenLibDoc.cpp:2119` is
+    pub fn from_byte(byte: u8) -> Result<Self, ParseError> {
+        Ok(Self::new(
+            u32::from(
+                match byte.checked_sub(1) {
+                    Some(value) => value,
+                    None => return Err(ParseError::Other("Underflowed position".to_string())),
+                } & 0x0f,
+            ),
+            u32::from(byte >> 4),
         ))
     }
     /// Makes a `Point` at (`x`, `y`)
-    pub fn new(x: u32, y: u32) -> Point {
-        Point {
+    #[must_use]
+    pub fn new(x: u32, y: u32) -> Self {
+        Self {
             is_null: false,
             x,
             y,
         }
     }
 
-    pub fn null() -> Point {
-        Point {
+    #[must_use]
+    pub fn null() -> Self {
+        Self {
             is_null: true,
             x: 0,
             y: 0,
         }
     }
     /// Converts a 1D coord to a `Point`
-    pub fn from_1d(idx: u32, width: u32) -> Point {
-        Point {
+    #[must_use]
+    pub fn from_1d(idx: u32, width: u32) -> Self {
+        Self {
             is_null: idx >/*=*/ width*width,
             x: idx % width,
             y: idx / width,
         }
     }
     /// Convert back a `Point` to a 1D coord
+    #[must_use]
     pub fn to_1d(self, width: u32) -> u32 {
         self.x + self.y * width
     }
@@ -230,8 +240,8 @@ impl Point {
 pub struct BoardArr(Vec<BoardMarker>);
 
 impl BoardArr {
-    fn new() -> BoardArr {
-        BoardArr(Vec::new())
+    fn new() -> Self {
+        Self(Vec::new())
     }
 
     fn add(&mut self, elem: BoardMarker) {
@@ -291,19 +301,20 @@ impl fmt::Display for BoardArr {
 }
 
 impl DisplayBoard {
-    /// Makes a new DisplayBoard of size `boardsize`.
+    /// Makes a new `DisplayBoard` of size `boardsize`.
     ///
     /// # Examples
     /// ```
     /// # use renju_board::board_logic:Display:Board;
     /// let mut board = DisplayBoard::new(15);
     /// ```
-    pub fn new(boardsize: u32) -> DisplayBoard {
+    #[must_use]
+    pub fn new(boardsize: u32) -> Self {
         let board: BoardArr = (0..boardsize * boardsize)
             .map(|idx| BoardMarker::new(Point::from_1d(idx, boardsize), Stone::Empty))
             .collect();
 
-        DisplayBoard {
+        Self {
             boardsize,
             last_move: None,
             board,
@@ -316,13 +327,16 @@ impl DisplayBoard {
             .collect();
     }
     /// Returns a immutable reference to the `BoardMarker` at `pos`
+    #[must_use]
     pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
         self.board.get(pos.to_1d(self.boardsize) as usize)
     }
     /// Returns a immutable reference to the `BoardMarker` at (`x`,`y`)
+    #[must_use]
     pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
         self.board.get((x + y * self.boardsize) as usize)
     }
+    #[must_use]
     pub fn get_i32xy(&self, x: i32, y: i32) -> Option<&BoardMarker> {
         if (x + 1).is_positive() && (y + 1).is_positive() {
             // O is also valid
@@ -352,7 +366,7 @@ impl DisplayBoard {
 
 impl FromIterator<BoardMarker> for BoardArr {
     fn from_iter<I: IntoIterator<Item = BoardMarker>>(iterator: I) -> Self {
-        let mut c = BoardArr::new();
+        let mut c = Self::new();
 
         for i in iterator {
             c.add(i);

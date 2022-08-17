@@ -26,22 +26,25 @@ pub struct MoveIndex {
 }
 
 impl MoveIndex {
-    pub fn new(edge_node: (EdgeIndex, NodeIndex)) -> MoveIndex {
-        MoveIndex {
+    #[must_use]
+    pub fn new(edge_node: (EdgeIndex, NodeIndex)) -> Self {
+        Self {
             node_index: edge_node.1,
             edge_index: Some(edge_node.0),
         }
     }
 
-    pub fn new_node(node: NodeIndex) -> MoveIndex {
-        MoveIndex {
+    #[must_use]
+    pub fn new_node(node: NodeIndex) -> Self {
+        Self {
             node_index: node,
             edge_index: None,
         }
     }
 
-    pub fn from_option(edge_node_option: Option<(EdgeIndex, NodeIndex)>) -> Option<MoveIndex> {
-        edge_node_option.map(|edge_node| MoveIndex {
+    #[must_use]
+    pub fn from_option(edge_node_option: Option<(EdgeIndex, NodeIndex)>) -> Option<Self> {
+        edge_node_option.map(|edge_node| Self {
             node_index: edge_node.1,
             edge_index: Some(edge_node.0),
         })
@@ -61,13 +64,13 @@ impl fmt::Debug for MoveIndex {
 impl FromStr for MoveIndex {
     type Err = ParseError;
 
-    fn from_str(s: &str) -> Result<MoveIndex, ParseError> {
+    fn from_str(s: &str) -> Result<Self, ParseError> {
         let (n, e) = {
             let mut t = s.splitn(2, ' ');
             (t.next(), t.next())
         };
         match e {
-            None => Ok(MoveIndex::new_node(n.unwrap().parse::<BigU>()?.into())),
+            None => Ok(Self::new_node(n.unwrap().parse::<BigU>()?.into())),
             Some(_e) => Err(ParseError::Other(
                 "Edges not currently supported for parsing.".to_string(),
             )),
@@ -84,8 +87,9 @@ pub struct Board {
 }
 
 impl Board {
-    pub fn new() -> Board {
-        let mut board = Board {
+    #[must_use]
+    pub fn new() -> Self {
+        let mut board = Self {
             graph: daggy::Dag::with_capacity(255, 255),
             marked_for_branch: vec![],
             move_list: vec![],
@@ -106,13 +110,14 @@ impl Board {
     }
     pub fn add_move_to_move_list(&mut self, index: MoveIndex) {
         self.move_list.push(index);
-        self.increment();
+        self.index = self.index.checked_add(1).unwrap();
     }
 
     pub fn get_move_mut(&mut self, node: MoveIndex) -> Option<&mut BoardMarker> {
         self.graph.node_weight_mut(node.node_index)
     }
 
+    #[must_use]
     pub fn get_move(&self, node: MoveIndex) -> Option<&BoardMarker> {
         self.graph.node_weight(node.node_index)
     }
@@ -121,6 +126,7 @@ impl Board {
         self.graph.remove_node(node.node_index)
     }
 
+    #[must_use]
     pub fn get_children(&self, parent: &MoveIndex) -> Vec<MoveIndex> {
         let mut result: Vec<MoveIndex> = Vec::new();
         for child in self.graph.children(parent.node_index).iter(&self.graph) {
@@ -129,6 +135,7 @@ impl Board {
         result
     }
 
+    #[must_use]
     pub fn get_parent(&self, child: &MoveIndex) -> Option<MoveIndex> {
         let mut parent = self.graph.parents(child.node_index);
         let result = parent.walk_next(&self.graph);
@@ -139,6 +146,7 @@ impl Board {
         }
     }
 
+    #[must_use]
     pub fn get_siblings(&self, child: &MoveIndex) -> Vec<MoveIndex> {
         let parent_opt = self.get_parent(child);
         match parent_opt {
@@ -150,6 +158,7 @@ impl Board {
     // choices. etc.
 
     /// Gives a simple vec of all the traversed parents including root.
+    #[must_use]
     pub fn down_to_root(&self, node: &MoveIndex) -> Vec<MoveIndex> {
         let mut parent: Option<MoveIndex> = self.get_parent(node);
         if parent.is_none() {
@@ -165,6 +174,7 @@ impl Board {
     }
 
     /// Gives the amount of moves to travel to root.
+    #[must_use]
     pub fn moves_to_root(&self, node: &MoveIndex) -> usize {
         let mut parent: Option<MoveIndex> = self.get_parent(node);
         if parent.is_none() {
@@ -178,7 +188,7 @@ impl Board {
         length
     }
 
-    /// Returns the board as it would look like when end_node was played.
+    /// Returns the board as it would look like when `end_node` was played.
     pub fn as_board(&self, end_node: &MoveIndex) -> Result<DisplayBoard, ParseError> {
         let mut move_list: Vec<MoveIndex> = self.down_to_root(end_node);
         move_list.push(*end_node);
@@ -202,6 +212,7 @@ impl Board {
     /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
     ///
     /// Returns the children that were walked  and the children that caused the branch, if any.
+    #[must_use]
     pub fn up_to_branch(&self, node: &MoveIndex) -> (Vec<MoveIndex>, Vec<MoveIndex>) {
         // Check if we should wrap the result in an option.
         let mut branch_decendants: Vec<MoveIndex> = Vec::new();
@@ -215,6 +226,7 @@ impl Board {
     /// Move down in tree until there is a branch, i.e move has multiple children.
     ///
     /// Returns the branching node, if any.
+    #[must_use]
     pub fn down_to_branch(&self, node: &MoveIndex) -> Option<MoveIndex> {
         let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
         let mut parent: Option<MoveIndex> = self.get_parent(node);
@@ -263,15 +275,18 @@ impl Board {
     }
 
     // get the last branch.
+    #[must_use]
     pub fn get_down(&self, index: &MoveIndex) -> Option<MoveIndex> {
         self.down_to_branch(index)
     }
 
     // get the last branch.
+    #[must_use]
     pub fn get_right(&self, index: &MoveIndex) -> Vec<MoveIndex> {
         self.up_to_branch(index).0
     }
 
+    #[must_use]
     pub fn get_variant(&self, index: &MoveIndex, point: &Point) -> Option<MoveIndex> {
         // this function does something.
         if let Some(node) = self.get_down(index) {
@@ -279,7 +294,7 @@ impl Board {
                 if point2 == point {
                     return Some(node);
                 } else {
-                    let mut node = node.clone();
+                    let node = node;
                     for right in self.get_right(&node) {
                         if let Some(BoardMarker { point: point2, .. }) = self.get_move(right) {
                             if point2 == point {
@@ -293,35 +308,32 @@ impl Board {
         None
     }
 
+    #[must_use]
     pub fn current_move(&self) -> MoveIndex {
-        self.move_list
+        *self
+            .move_list
             .get(self.index)
             .expect("index should be up to date with move_list")
-            .clone()
     }
 
+    #[must_use]
     pub fn get_root(&self) -> MoveIndex {
-        self.move_list
+        *self
+            .move_list
             .get(0)
             .expect("move_list should never be empty")
-            .clone()
     }
 
+    #[must_use]
     pub fn next_move(&self) -> Option<MoveIndex> {
-        self.move_list.get(self.index + 1).cloned()
+        self.move_list.get(self.index + 1).copied()
     }
 
     pub fn move_to_root(&mut self) {
         self.index = 0;
     }
 
-    fn decrement(&mut self) {
-        self.index = self.index.saturating_sub(1);
-    }
-    fn increment(&mut self) {
-        self.index = self.index.checked_add(1).unwrap();
-    }
-
+    #[must_use]
     pub fn index(&self) -> usize {
         self.index
     }
@@ -363,7 +375,7 @@ impl fmt::Debug for Board {
 
 #[test]
 fn does_it_work() {
-    use crate::board_logic::*;
+    use crate::board_logic::{BoardMarker, Point, Stone};
     let mut graph = Board::new();
     let a = graph.new_root(BoardMarker::new(Point::new(7, 7), Stone::Black));
     let b_1 = BoardMarker::new(Point::new(8, 7), Stone::White);
@@ -386,7 +398,7 @@ fn does_it_work() {
     }
     // for i in
     tracing::info!("{:?}", graph);
-    tracing::info!("Children of {:?} {:?}", b_1, graph.get_children(a_1));
+    tracing::info!("Children of {:?} {:?}", b_1, graph.get_children(&a_1));
     let branched_down = graph.down_to_branch(&a_1_2);
     tracing::info!(
         "Moving down on {:?} gives: end = {:?}",

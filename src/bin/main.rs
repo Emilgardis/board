@@ -1,12 +1,12 @@
 use clap::{App, Arg};
-use renju::errors::*;
+use renju::errors::ParseError;
 
 use std::path::Path;
 
 use color_eyre::eyre::WrapErr;
+use renju::board::{Board, MoveIndex};
 use renju::board_logic;
 use renju::file_reader::open_file;
-use renju::board::{Board, MoveIndex};
 
 fn main() -> Result<(), color_eyre::Report> {
     let _ = dotenv::dotenv();
@@ -51,19 +51,19 @@ fn main() -> Result<(), color_eyre::Report> {
                 eprintln!("{}", board.board);
                 if let Some(last_point) = board.last_move {
                     if let Some(&board_logic::BoardMarker {
-                        multiline_comment: ref multiline_comment_opt,
-                        oneline_comment: ref oneline_comment_opt,
+                        ref multiline_comment,
+                        ref oneline_comment,
                         ..
                     }) = board.get(last_point)
                     {
-                        if let Some(ref comment) = oneline_comment_opt {
+                        if let Some(comment) = oneline_comment.as_deref() {
                             tracing::info!("{}", comment)
                         }
-                        if let Some(ref comment) = multiline_comment_opt {
+                        if let Some(comment) = multiline_comment.as_deref() {
                             tracing::info!("{}", comment)
                         }
                     } else {
-                        panic!("Move not found")
+                        color_eyre::eyre::bail!("Move not found")
                     }
                 }
             }

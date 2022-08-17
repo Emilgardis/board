@@ -1,7 +1,4 @@
-use crate::{
-    board::{self, Board, MoveIndex},
-    board_logic::{BoardMarker, Point, Stone},
-};
+use crate::board_logic::{BoardMarker, Point, Stone};
 
 use super::Version;
 pub use super::{Command, CommandVariant};
@@ -12,7 +9,10 @@ mod tests {
 
     use crate::board_logic::Point;
 
-    use super::{super::*, *};
+    use super::{
+        super::{BufRead, Command, CommandVariant, Stone, Version},
+        *,
+    };
 
     fn buf(b: &'static [u8]) -> impl BufRead {
         b
@@ -296,20 +296,20 @@ pub fn parse_v3x(
             },
         }
         tracing::debug!(buf = format_args!("{:#4X?}", buf));
-        let point = if let 0x00 = buf[0] {
+        let point = if buf[0] == 0x00 {
             Point::null()
         } else {
             Point::from_byte(buf[0])?
         };
         let mut mark = BoardMarker::new(point, Stone::Empty);
-        let command = Command::new(buf[1] as u32)?;
+        let command = Command::new(u32::from(buf[1]))?;
 
         let command = if command.is_extension() {
             bytes.read_exact(&mut buf)?;
             tracing::debug!("extension: {:#4b}, {:#4b}", buf[0], buf[1]);
             let mut cmd = command.0.bits & 0xFF;
 
-            cmd |= (((buf[0] as u32) << 8) | buf[1] as u32) << 8;
+            cmd |= ((u32::from(buf[0]) << 8) | u32::from(buf[1])) << 8;
             Command::new(cmd)?
         } else {
             command
@@ -368,7 +368,7 @@ pub enum ParseBoardTextError {
     Io(#[from] std::io::Error),
 }
 
-fn parse_board_text(mut bytes: impl std::io::BufRead) -> Result<String, ParseBoardTextError> {
+fn parse_board_text(bytes: impl std::io::BufRead) -> Result<String, ParseBoardTextError> {
     // Board text is a null padded null-ending string, iff len % 2 == 1
     // so: the string "AA\0" becomes "AA\0\0"
 
@@ -386,7 +386,7 @@ pub enum ParseCommentError {
 }
 
 pub fn parse_comments(
-    mut bytes: impl std::io::BufRead,
+    bytes: impl std::io::BufRead,
 ) -> Result<(Option<String>, Option<String>), ParseCommentError> {
     // The comments are either:
     //
@@ -414,7 +414,7 @@ pub fn parse_comments(
 }
 
 pub fn parse_old_comments(
-    mut bytes: impl std::io::BufRead,
+    bytes: impl std::io::BufRead,
 ) -> Result<(Option<String>, Option<String>), ParseCommentError> {
     let mut one = None;
     let mut multi = None;

@@ -1,14 +1,8 @@
 //! Functions for handling renlib files.
 use bitflags::bitflags;
 
-use crate::{
-    board_logic::{BoardMarker, Stone},
-    errors::*,
-};
-use std::{
-    convert::{TryFrom, TryInto},
-    io::{BufRead, Read},
-};
+use crate::{board_logic::Stone, errors::ParseError};
+use std::io::BufRead;
 
 use crate::board::Board;
 
@@ -21,7 +15,7 @@ pub enum Version {
     V34,
 }
 
-pub const MASK: u32 = 0xFFFF3F;
+pub const MASK: u32 = 0x00FF_FF3F;
 
 bitflags! {
     #[repr(transparent)]
@@ -63,7 +57,7 @@ pub enum CommandError {
 impl Command {
     #[inline]
     pub fn new(bits: u32) -> Result<Self, CommandError> {
-        Ok(Command(
+        Ok(Self(
             CommandVariant::from_bits(bits).ok_or(CommandError::UnknownCommand(bits))?,
         ))
     }
@@ -71,38 +65,47 @@ impl Command {
         self.0.contains(command)
     }
 
+    #[must_use]
     pub fn is_down(&self) -> bool {
         self.flag(CommandVariant::DOWN)
     }
 
+    #[must_use]
     pub fn is_right(&self) -> bool {
         self.flag(CommandVariant::RIGHT)
     }
 
+    #[must_use]
     pub fn is_old_comment(&self) -> bool {
         self.flag(CommandVariant::OLDCOMMENT)
     }
 
+    #[must_use]
     pub fn is_mark(&self) -> bool {
         self.flag(CommandVariant::MARK)
     }
 
+    #[must_use]
     pub fn is_comment(&self) -> bool {
         self.flag(CommandVariant::COMMENT)
     }
 
+    #[must_use]
     pub fn is_start(&self) -> bool {
         self.flag(CommandVariant::START)
     }
 
+    #[must_use]
     pub fn is_no_move(&self) -> bool {
         self.flag(CommandVariant::NOMOVE)
     }
 
+    #[must_use]
     pub fn is_extension(&self) -> bool {
         self.flag(CommandVariant::EXTENSION)
     }
 
+    #[must_use]
     pub fn is_board_text(&self) -> bool {
         self.flag(CommandVariant::BOARDTEXT)
     }
@@ -116,7 +119,7 @@ pub fn parse_lib(mut file: impl BufRead, board: &mut Board) -> Result<(), color_
     let moves = match read_header(&mut file)? {
         v @ (Version::V30 | Version::V34) => parser::parse_v3x(file, v),
     }?;
-    let mut new_moves = 0;
+    let mut _new_moves = 0;
     let mut first_move = None;
     let mut last_move_black = false;
     let mut stack = vec![];
@@ -140,7 +143,7 @@ pub fn parse_lib(mut file: impl BufRead, board: &mut Board) -> Result<(), color_
             let next = board.add_move(cur_move, marker.clone());
             cur_move = next;
             if marker.command.is_move() {
-                new_moves += 1;
+                _new_moves += 1;
                 if first_move.is_none() {
                     first_move = Some(cur_move)
                 }
