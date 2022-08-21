@@ -2,13 +2,23 @@
 
 use crate::errors::ParseError;
 use crate::file_reader::renlib::Command;
+use crate::file_reader::renlib::CommandVariant;
 
 use std::char;
 use std::fmt;
 use std::iter::FromIterator;
-use std::ops::{Deref, DerefMut};
+use std::ops::Deref;
+
+#[macro_export]
+macro_rules! p {
+    [$x:ident, $y:literal] => {
+        Point::new((stringify!($x).chars().next().unwrap() as u8 - b'A') as u32, 15-$y)
+    };
+}
+
 /// Enum for `Stone`,
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Stone {
     Empty,
     White,
@@ -23,6 +33,39 @@ impl Stone {
             Self::Black => Self::White,
             Self::White => Self::Black,
             //_ => unreachable!(),
+        }
+    }
+
+    /// Returns `true` if the stone is [`Empty`].
+    ///
+    /// [`Empty`]: Stone::Empty
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        matches!(self, Self::Empty)
+    }
+
+    /// Returns `true` if the stone is [`White`].
+    ///
+    /// [`White`]: Stone::White
+    #[must_use]
+    pub fn is_white(&self) -> bool {
+        matches!(self, Self::White)
+    }
+
+    /// Returns `true` if the stone is [`Black`].
+    ///
+    /// [`Black`]: Stone::Black
+    #[must_use]
+    pub fn is_black(&self) -> bool {
+        matches!(self, Self::Black)
+    }
+
+    /// Create a stone from a boolean, true = black, false = white
+    pub fn from_bool(b: bool) -> Self {
+        if b {
+            Stone::Black
+        } else {
+            Stone::White
         }
     }
 }
@@ -47,6 +90,7 @@ impl fmt::Display for Stone {
 }
 /// A coordinate located at (`x`, `y`)
 #[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Point {
     /// Whether the point is outside the board, ie a null point.
     pub is_null: bool,
@@ -83,6 +127,7 @@ impl fmt::Debug for Point {
 /// This will hopefully have more fields in the future, planned for is support for comments on each
 /// marker.
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoardMarker {
     pub point: Point,
     pub color: Stone,
@@ -94,7 +139,20 @@ pub struct BoardMarker {
 
 impl BoardMarker {
     #[must_use]
+    #[track_caller]
     pub fn new(point: Point, color: Stone) -> Self {
+        assert!(!point.is_null);
+        Self {
+            point,
+            color,
+            oneline_comment: None,
+            multiline_comment: None,
+            board_text: None,
+            command: Command::new(0).unwrap(),
+        }
+    }
+
+    fn _new(point: Point, color: Stone) -> Self {
         Self {
             point,
             color,
@@ -106,8 +164,10 @@ impl BoardMarker {
     }
 
     #[must_use]
-    pub fn null_move() -> Self {
-        Self::new(Point::null(), Stone::Empty)
+    pub fn null() -> Self {
+        let mut m = Self::_new(Point::null(), Stone::Empty);
+        *m.command = CommandVariant::NOMOVE;
+        m
     }
 
     pub fn from_pos_info(pos: u8, info: u32) -> Result<Self, color_eyre::eyre::Error> {
@@ -143,7 +203,7 @@ impl BoardMarker {
 
 impl fmt::Debug for BoardMarker {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if f.alternate() {
+        if !f.alternate() {
             if !self.point.is_null {
                 write!(
                     f,
@@ -237,15 +297,83 @@ impl Point {
 
 /// Holds all `BoardMarker`'s in a `Board`.
 #[derive(Debug)]
-pub struct BoardArr(Vec<BoardMarker>);
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BoardArr(Vec<BoardMarker>, u32);
 
 impl BoardArr {
-    fn new() -> Self {
-        Self(Vec::new())
+    pub fn new(size: u32) -> Self {
+        let mut b = Self(vec![BoardMarker::null(); (size * size) as usize], size);
+        for idx in 0..(size * size) as u32 {
+            b.get_mut(idx as usize).unwrap().point = Point::from_1d(idx, size);
+        }
+        b
     }
 
+    pub fn size(&self) -> u32 {
+        self.1
+    }
+
+    pub fn set(&mut self, marker: BoardMarker) -> Result<(), ParseError> {
+        let idx = marker.point.to_1d(self.1) as usize;
+        let mut_marker = self.0.get_mut(idx).ok_or_else(|| {
+            ParseError::Other(format!("Couldn't get index {} in board array", idx))
+        })?;
+        *mut_marker = marker;
+        Ok(())
+    }
+
+    /// Internal function to add to array, use [Self::set_point] or [Self::set] to actually modify board
     fn add(&mut self, elem: BoardMarker) {
         self.0.push(elem);
+    }
+
+    /// Sets all `BoardMarker`'s to `Stone::Empty`
+    pub fn clear(&mut self) {
+        self.0 = (0..self.1 * self.1)
+            .map(|idx| BoardMarker::new(Point::from_1d(idx, self.1), Stone::Empty))
+            .collect();
+    }
+    /// Returns a immutable reference to the `BoardMarker` at `pos`
+    #[must_use]
+    #[track_caller]
+    pub fn get_point(&self, pos: Point) -> Option<&BoardMarker> {
+        let marker = self.0.get(pos.to_1d(self.1) as usize);
+        if let Some(marker) = marker {
+            assert_eq!(marker.point, pos);
+        }
+        marker
+    }
+    /// Returns a immutable reference to the `BoardMarker` at (`x`,`y`)
+    #[must_use]
+    pub fn get_xy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
+        self.0.get((x + y * self.1) as usize)
+    }
+    /// Returns a mutable reference to the `BoardMarker` at (`x`,`y`)
+    #[must_use]
+    pub fn get_xy_mut(&mut self, x: u32, y: u32) -> Option<&mut BoardMarker> {
+        self.0.get_mut((x + y * self.1) as usize)
+    }
+    #[must_use]
+    pub fn get_i32xy(&self, x: i32, y: i32) -> Option<&BoardMarker> {
+        if (x + 1).is_positive() && (y + 1).is_positive() {
+            // O is also valid
+            self.get_xy(x as u32, y as u32)
+        } else {
+            None
+        }
+    }
+    /// Returns a mutable reference to the `BoardMarker` at `pos`
+    pub fn get_point_mut(&mut self, pos: Point) -> Option<&mut BoardMarker> {
+        self.0.get_mut(pos.to_1d(self.1) as usize)
+    }
+
+    /// Returns a mutable reference to the `BoardMarker` at `pos`
+    pub fn get_mut(&mut self, pos: usize) -> Option<&mut BoardMarker> {
+        self.0.get_mut(pos)
+    }
+    /// Sets the `BoardMarker` at `pos` to `color`
+    pub fn set_point(&mut self, pos: Point, color: Stone) {
+        self.0[pos.to_1d(self.1) as usize].color = color;
     }
 }
 
@@ -257,18 +385,12 @@ impl Deref for BoardArr {
     }
 }
 
-impl DerefMut for BoardArr {
-    fn deref_mut(&mut self) -> &mut Vec<BoardMarker> {
-        &mut self.0
-    }
-}
-
 #[derive(Debug)]
 /// Board type. Holds the data for a game.
 pub struct DisplayBoard {
     pub boardsize: u32,
     pub last_move: Option<Point>,
-    pub board: BoardArr,
+    pub inner: BoardArr,
 }
 
 impl fmt::Display for BoardArr {
@@ -317,56 +439,14 @@ impl DisplayBoard {
         Self {
             boardsize,
             last_move: None,
-            board,
+            inner: board,
         }
-    }
-    /// Sets all `BoardMarker`'s to `Stone::Empty`
-    pub fn clear(&mut self) {
-        self.board = (0..self.boardsize * self.boardsize)
-            .map(|idx| BoardMarker::new(Point::from_1d(idx, self.boardsize), Stone::Empty))
-            .collect();
-    }
-    /// Returns a immutable reference to the `BoardMarker` at `pos`
-    #[must_use]
-    pub fn get(&self, pos: Point) -> Option<&BoardMarker> {
-        self.board.get(pos.to_1d(self.boardsize) as usize)
-    }
-    /// Returns a immutable reference to the `BoardMarker` at (`x`,`y`)
-    #[must_use]
-    pub fn getxy(&self, x: u32, y: u32) -> Option<&BoardMarker> {
-        self.board.get((x + y * self.boardsize) as usize)
-    }
-    #[must_use]
-    pub fn get_i32xy(&self, x: i32, y: i32) -> Option<&BoardMarker> {
-        if (x + 1).is_positive() && (y + 1).is_positive() {
-            // O is also valid
-            self.getxy(x as u32, y as u32)
-        } else {
-            None
-        }
-    }
-    /// Returns a mutable reference to the `BoardMarker` at `pos`
-    pub fn get_mut(&mut self, pos: Point) -> Option<&mut BoardMarker> {
-        self.board.get_mut(pos.to_1d(self.boardsize) as usize)
-    }
-    /// Sets the `BoardMarker` at `pos` to `color`
-    pub fn set_point(&mut self, pos: Point, color: Stone) {
-        self.board[pos.to_1d(self.boardsize) as usize].color = color;
-    }
-
-    pub fn set(&mut self, marker: BoardMarker) -> Result<(), ParseError> {
-        let idx = marker.point.to_1d(self.boardsize) as usize;
-        let mut_marker = self.board.get_mut(idx).ok_or_else(|| {
-            ParseError::Other(format!("Couldn't get index {} in board array", idx))
-        })?;
-        *mut_marker = marker;
-        Ok(())
     }
 }
 
 impl FromIterator<BoardMarker> for BoardArr {
     fn from_iter<I: IntoIterator<Item = BoardMarker>>(iterator: I) -> Self {
-        let mut c = Self::new();
+        let mut c = Self::new(15); // TODO: default size
 
         for i in iterator {
             c.add(i);
@@ -380,26 +460,26 @@ mod tests {
     use super::*;
     #[test]
     fn check_if_board_works() {
-        let mut board = DisplayBoard::new(15);
-        assert_eq!(board.board.len(), 15 * 15);
+        let mut board = BoardArr::new(15);
+        assert_eq!(board.len(), 15 * 15);
         let p = Point::new(0, 0);
         board.set_point(p, Stone::White);
-        assert_eq!(board.get(p).unwrap().color, Stone::White);
+        assert_eq!(board.get_point(p).unwrap().color, Stone::White);
         let p = Point::new(3, 2);
         board.set_point(p, Stone::Black);
-        assert_eq!(board.get(p).unwrap().color, Stone::Black);
+        assert_eq!(board.get_point(p).unwrap().color, Stone::Black);
         // tracing::info!("{:?}", board);
-        tracing::info!("Board\n{}", board.board);
+        tracing::info!("Board\n{}", board);
     }
 
     #[test]
     fn clear_board() {
-        let mut board = DisplayBoard::new(15);
+        let mut board = BoardArr::new(15);
         let p = Point::new(7, 7);
         board.set_point(p, Stone::White);
-        tracing::info!("Board:\n{}", board.board);
+        tracing::info!("Board:\n{}", board);
         board.clear();
-        tracing::info!("Board - Cleared:\n{}", board.board);
-        assert_eq!(board.get(p).unwrap().color, Stone::Empty);
+        tracing::info!("Board - Cleared:\n{}", board);
+        assert_eq!(board.get_point(p).unwrap().color, Stone::Empty);
     }
 }

@@ -124,18 +124,26 @@ pub enum FileErr {
 }
 
 #[tracing::instrument]
-pub fn open_file(path: &Path) -> Result<Board, color_eyre::Report> {
+pub fn open_file_path(path: &Path) -> Result<Board, color_eyre::Report> {
     let mut board = Board::new();
+
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(&path)?;
-    tracing::trace!(filetype = ?filetype, "file opened");
+    tracing::trace!(?path, ?filetype, "file opened");
+    read_bytes(file, filetype.as_ref(), &mut board)?;
+    Ok(board)
+}
 
+pub fn read_bytes(
+    bytes: impl std::io::Read,
+    filetype: Option<&FileType>,
+    board: &mut Board,
+) -> Result<(), color_eyre::Report> {
     match filetype {
         Some(FileType::Pos) => {
-            tracing::info!("Opening pos file. {:?}", path);
             let mut sequence: Vec<BoardMarker> = Vec::new();
-            for (index, pos) in file.bytes().skip(1).enumerate() {
+            for (index, pos) in bytes.bytes().skip(1).enumerate() {
                 // First value should always be the number of moves.
                 sequence.push(BoardMarker::new(
                     Point::from_1d(u32::from(pos?), 15),
@@ -147,15 +155,15 @@ pub fn open_file(path: &Path) -> Result<Board, color_eyre::Report> {
                 ));
             }
             let root = board.get_root();
-            let mut latest: MoveIndex = board.add_move(root, sequence[0].clone());
+            let mut latest: MoveIndex = board.insert_move(root, sequence[0].clone());
             for marker_move in sequence.into_iter().skip(1) {
-                latest = board.add_move(latest, marker_move)
+                latest = board.insert_move(latest, marker_move)
             }
         }
-        Some(FileType::Lib) => renlib::parse_lib(std::io::BufReader::new(file), &mut board)?,
+        Some(FileType::Lib) => renlib::parse_lib(bytes, board)?,
         _ => return Err(ParseError::NotSupported.into()),
     }
-    Ok(board)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -168,7 +176,7 @@ mod tests {
     #[test]
     fn open_pos_file() {
         let file = Path::new("examplefiles/example.pos");
-        let graph: mn::Board = match open_file(file) {
+        let graph: mn::Board = match open_file_path(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("{:?}", desc),
         };
@@ -177,7 +185,7 @@ mod tests {
     #[test]
     fn open_lib_file() {
         let file = Path::new("examplefiles/lib_documented.lib");
-        let graph: mn::Board = match open_file(file) {
+        let graph: mn::Board = match open_file_path(file) {
             Ok(gr) => gr,
             Err(desc) => panic!("err, {:?}", desc),
         };

@@ -7,7 +7,7 @@ pub use super::{Command, CommandVariant};
 mod tests {
     use test_log::test;
 
-    use crate::board_logic::Point;
+    use crate::{board_logic::Point, p};
 
     use super::{
         super::{BufRead, Command, CommandVariant, Stone, Version},
@@ -21,12 +21,6 @@ mod tests {
     fn parse_v30(bytes: &'static [u8]) -> Result<Vec<BoardMarker>, color_eyre::Report> {
         let mut bytes = buf(bytes);
         parse_v3x(&mut bytes, Version::V30)
-    }
-
-    macro_rules! p {
-        [$x:ident, $y:literal] => {
-            Point::new((stringify!($x).chars().next().unwrap() as u8 - b'A') as u32, 15-$y)
-        };
     }
 
     #[test]
@@ -57,107 +51,107 @@ mod tests {
                 BoardMarker {
                     point: p![H, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 9],
                     command: Command(CommandVariant::DOWN),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![F, 9],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 11],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 10],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 9],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 10],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 11],
                     command: Command(CommandVariant::DOWN),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 10],
                     command: Command(CommandVariant::RIGHT),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 10],
                     command: Command(CommandVariant::RIGHT),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 9],
                     command: Command(CommandVariant::DOWN | CommandVariant::RIGHT),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 7],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 9],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![K, 7],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 9],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![K, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![K, 9],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 10],
                     command: Command(CommandVariant::RIGHT),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 }
             ]
         );
@@ -202,12 +196,12 @@ mod tests {
                 BoardMarker {
                     point: p![H, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 8],
                     command: Command(CommandVariant::RIGHT),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 }
             ]
         );
@@ -225,7 +219,7 @@ mod tests {
                 BoardMarker {
                     point: p![H, 8],
                     command: Command(CommandVariant::empty()),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 9],
@@ -237,7 +231,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![G, 8],
@@ -249,7 +243,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 8],
@@ -261,7 +255,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 7],
@@ -272,7 +266,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
-                    ..BoardMarker::null_move()
+                    ..BoardMarker::null()
                 }
             ]
         );
@@ -281,7 +275,7 @@ mod tests {
 }
 
 pub fn parse_v3x(
-    mut bytes: impl std::io::BufRead,
+    mut bytes: impl std::io::Read,
     _version: Version,
 ) -> Result<Vec<BoardMarker>, color_eyre::eyre::Report> {
     let mut vec = vec![];
@@ -340,7 +334,7 @@ pub fn parse_v3x(
     Ok(vec)
 }
 
-pub fn read_text(mut bytes: impl std::io::BufRead) -> Result<Vec<u8>, std::io::Error> {
+pub fn read_text(mut bytes: impl std::io::Read) -> Result<Vec<u8>, std::io::Error> {
     // TODO: Should be moved to be initialized once
     let mut buf = vec![];
 
@@ -368,7 +362,7 @@ pub enum ParseBoardTextError {
     Io(#[from] std::io::Error),
 }
 
-fn parse_board_text(bytes: impl std::io::BufRead) -> Result<String, ParseBoardTextError> {
+fn parse_board_text(bytes: impl std::io::Read) -> Result<String, ParseBoardTextError> {
     // Board text is a null padded null-ending string, iff len % 2 == 1
     // so: the string "AA\0" becomes "AA\0\0"
 
@@ -386,7 +380,7 @@ pub enum ParseCommentError {
 }
 
 pub fn parse_comments(
-    bytes: impl std::io::BufRead,
+    bytes: impl std::io::Read,
 ) -> Result<(Option<String>, Option<String>), ParseCommentError> {
     // The comments are either:
     //
@@ -414,7 +408,7 @@ pub fn parse_comments(
 }
 
 pub fn parse_old_comments(
-    bytes: impl std::io::BufRead,
+    bytes: impl std::io::Read,
 ) -> Result<(Option<String>, Option<String>), ParseCommentError> {
     let mut one = None;
     let mut multi = None;

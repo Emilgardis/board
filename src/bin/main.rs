@@ -5,8 +5,8 @@ use std::path::Path;
 
 use color_eyre::eyre::WrapErr;
 use renju::board::{Board, MoveIndex};
-use renju::board_logic;
-use renju::file_reader::open_file;
+use renju::board_logic::{self, BoardArr, Point};
+use renju::file_reader::open_file_path;
 
 fn main() -> Result<(), color_eyre::Report> {
     let _ = dotenv::dotenv();
@@ -24,7 +24,7 @@ fn main() -> Result<(), color_eyre::Report> {
 
     let path = Path::new(matches.value_of("file").unwrap());
     tracing::info!("File: {:?}", path);
-    let graph = open_file(path).wrap_err_with(|| format!("while parsing file {:?}", path))?;
+    let graph = open_file_path(path).wrap_err_with(|| format!("while parsing file {:?}", path))?;
 
     eprintln!("{:?}", graph);
     //let mut file = OpenOptions::new().write(true).create(true).open(format!("{}.dot",path.file_stem().unwrap().to_str().unwrap())).expect("Couldn't create .dot file");
@@ -47,14 +47,14 @@ fn main() -> Result<(), color_eyre::Report> {
             }
             Ok(line) => {
                 let node = line.parse()?;
-                let board = traverse(&graph, node)?;
-                eprintln!("{}", board.board);
-                if let Some(last_point) = board.last_move {
+                let (board, moves) = traverse(&graph, node)?;
+                eprintln!("{}", board);
+                if let Some(last_point) = moves.last() {
                     if let Some(&board_logic::BoardMarker {
                         ref multiline_comment,
                         ref oneline_comment,
                         ..
-                    }) = board.get(last_point)
+                    }) = board.get_point(*last_point)
                     {
                         if let Some(comment) = oneline_comment.as_deref() {
                             tracing::info!("{}", comment)
@@ -73,6 +73,6 @@ fn main() -> Result<(), color_eyre::Report> {
     }
 }
 
-fn traverse(graph: &Board, index: MoveIndex) -> Result<board_logic::DisplayBoard, ParseError> {
+fn traverse(graph: &Board, index: MoveIndex) -> Result<(BoardArr, Vec<Point>), ParseError> {
     graph.as_board(&index)
 }

@@ -2,7 +2,7 @@
 use bitflags::bitflags;
 
 use crate::{board_logic::Stone, errors::ParseError};
-use std::io::BufRead;
+use std::io::{BufRead, Read};
 
 use crate::board::Board;
 
@@ -19,6 +19,7 @@ pub const MASK: u32 = 0x00FF_FF3F;
 
 bitflags! {
     #[repr(transparent)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct CommandVariant: u32 {
         // Extensions
 
@@ -41,7 +42,22 @@ bitflags! {
 }
 
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Command(CommandVariant);
+
+impl std::ops::DerefMut for Command {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl std::ops::Deref for Command {
+    type Target = CommandVariant;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl std::fmt::Debug for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -110,12 +126,13 @@ impl Command {
         self.flag(CommandVariant::BOARDTEXT)
     }
 
-    fn is_move(&self) -> bool {
+    #[must_use]
+    pub fn is_move(&self) -> bool {
         !self.is_no_move()
     }
 }
 
-pub fn parse_lib(mut file: impl BufRead, board: &mut Board) -> Result<(), color_eyre::Report> {
+pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyre::Report> {
     let moves = match read_header(&mut file)? {
         v @ (Version::V30 | Version::V34) => parser::parse_v3x(file, v),
     }?;
@@ -136,11 +153,11 @@ pub fn parse_lib(mut file: impl BufRead, board: &mut Board) -> Result<(), color_
             };
             last_move_black = !last_move_black;
         }
-        let next_move = board.get_variant(&cur_move, &marker.point);
-        if let Some(next) = next_move {
+        let next_move = board.get_variant_weird(&cur_move, &marker.point, &marker.color);
+        if let Some((_, next)) = next_move {
             cur_move = next;
         } else {
-            let next = board.add_move(cur_move, marker.clone());
+            let next = board.insert_move(cur_move, marker.clone());
             cur_move = next;
             if marker.command.is_move() {
                 _new_moves += 1;
@@ -164,7 +181,7 @@ pub fn parse_lib(mut file: impl BufRead, board: &mut Board) -> Result<(), color_
     Ok(())
 }
 
-pub fn read_header(mut file: impl BufRead) -> Result<Version, ParseError> {
+pub fn read_header(mut file: impl Read) -> Result<Version, ParseError> {
     let mut header = [0u8; 20];
     file.read_exact(&mut header)?;
     validate_lib(&header)
