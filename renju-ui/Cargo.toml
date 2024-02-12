@@ -26,12 +26,16 @@ rfd = { version = "0.10.0" }
 tracing = "0.1.36"
 poll-promise = { version = "0.1.0", features = ["tokio"] }
 tokio = { version = "1.20.1" }
+color-eyre = { version = "0.6.2", features = ["tracing-error"] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber = "0.3"
 tokio = { version = "1.20.1", features = ["sync", "rt", "macros"] }
-
+color-eyre = { version = "0.6.2", default-features = false, features = [
+    "tracing-error",
+    "track-caller",
+] }
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1.6"

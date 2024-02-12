@@ -132,6 +132,7 @@ impl Command {
     }
 }
 
+#[tracing::instrument(skip(file))]
 pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyre::Report> {
     let moves = match read_header(&mut file)? {
         v @ (Version::V30 | Version::V34) => parser::parse_v3x(file, v),

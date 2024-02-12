@@ -4,14 +4,13 @@
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), color_eyre::Report> {
+    color_eyre::install()?;
     // Log to stdout (if you run with `RUST_LOG=debug`).
     tracing_subscriber::fmt::SubscriberBuilder::default()
-        .compact()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .with_file(true)
         .with_line_number(true)
-        .with_target(false)
         .init();
 
     let native_options = eframe::NativeOptions::default();
@@ -20,4 +19,5 @@ async fn main() {
         native_options,
         Box::new(|cc| Box::new(renju_ui::RenjuApp::new(cc))),
     );
+    Ok(())
 }

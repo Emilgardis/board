@@ -1,4 +1,6 @@
-use egui::{Button, RawInput};
+use std::sync::Arc;
+
+use egui::{Button, Label, RawInput, RichText, Style, TextEdit, Ui, Widget};
 use poll_promise::Promise;
 use renju::board_logic::BoardArr;
 
@@ -17,6 +19,8 @@ pub struct RenjuApp {
     value: f32,
     #[serde(skip)]
     picker_promise: Option<Promise<Option<Vec<u8>>>>,
+    #[serde(skip)]
+    just_clicked: bool,
 }
 
 impl Default for RenjuApp {
@@ -27,6 +31,7 @@ impl Default for RenjuApp {
             value: 2.7,
             board: UIBoard::new(),
             picker_promise: None,
+            just_clicked: false,
         }
     }
 }
@@ -55,14 +60,21 @@ impl eframe::App for RenjuApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
+    #[tracing::instrument(skip(self, ctx, frame), fields(move_list = ?self.board.graph().move_list()))]
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let Self {
             label,
             value,
             board,
             picker_promise,
+            just_clicked,
         } = self;
 
+        if *just_clicked {
+            *just_clicked = false;
+
+            tracing::info!(moves = ?board.moves(), variants = ?board.variants());
+        }
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
         // Tip: a good default choice is to just keep the `CentralPanel`.
@@ -92,12 +104,15 @@ impl eframe::App for RenjuApp {
                         match promise.poll() {
                             std::task::Poll::Ready(Some(bytes)) => {
                                 // lol
+                                let curr_move = board.graph().current_move();
                                 renju::file_reader::read_bytes(
                                     bytes.as_slice(),
                                     Some(&renju::file_reader::FileType::Lib),
                                     board.graph_mut(),
                                 )
                                 .unwrap();
+
+                                board.change_current_move(&curr_move);
                             }
                             std::task::Poll::Ready(None) => (),
                             _ => {
@@ -125,6 +140,33 @@ impl eframe::App for RenjuApp {
                 });
 
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
+                    let current = board.current_move_mut();
+                    let multi = current.multiline_comment.as_mut();
+                    ui.label("Comment:");
+                    match multi {
+                        Some(multi) if !multi.is_empty() => {
+                            ui.text_edit_multiline(multi);
+                        }
+                        _ => {
+                            let mut multi = String::new();
+                            TextEdit::multiline(&mut multi).hint_text("...").ui(ui);
+                            current.set_multiline_comment(multi);
+                        }
+                    }
+
+                    let one = current.oneline_comment.as_mut();
+                    ui.label("Comment:");
+                    match one {
+                        Some(one) if !one.is_empty() => {
+                            ui.text_edit_multiline(one);
+                        }
+                        _ => {
+                            let mut one = String::new();
+                            TextEdit::singleline(&mut one).hint_text("...").ui(ui);
+                            current.set_oneline_comment(one);
+                        }
+                    }
+
                     ui.horizontal(|ui| {
                         if cfg!(debug_assertions) {
                             ui.label(
@@ -138,9 +180,9 @@ impl eframe::App for RenjuApp {
                 });
             });
 
-        egui::CentralPanel::default().show(ctx, |ui| board.ui(ui));
+        egui::CentralPanel::default().show(ctx, |ui| board.ui(ui, just_clicked));
 
-        if true {
+        if false {
             egui::Window::new("Window").show(ctx, |ui| {
                 ui.label("Windows can be moved by dragging them.");
                 ui.label("They are automatically sized based on contents.");

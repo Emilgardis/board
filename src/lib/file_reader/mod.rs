@@ -129,12 +129,13 @@ pub fn open_file_path(path: &Path) -> Result<Board, color_eyre::Report> {
 
     let _display = path.display();
     let filetype = FileType::new(path);
-    let file: File = File::open(&path)?;
+    let file: File = File::open(path)?;
     tracing::trace!(?path, ?filetype, "file opened");
     read_bytes(file, filetype.as_ref(), &mut board)?;
     Ok(board)
 }
 
+#[tracing::instrument(skip(bytes))]
 pub fn read_bytes(
     bytes: impl std::io::Read,
     filetype: Option<&FileType>,

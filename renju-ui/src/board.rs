@@ -41,6 +41,20 @@ impl UIBoard {
     pub fn graph_mut(&mut self) -> &mut Board {
         &mut self.graph
     }
+
+    pub fn current_move(&self) -> &BoardMarker {
+        self.graph()
+            .get_move(self.graph().current_move())
+            .expect("oops")
+    }
+    pub fn current_move_mut(&mut self) -> &mut BoardMarker {
+        let curr = self.graph().current_move();
+        self.graph_mut().get_move_mut(curr).expect("oops")
+    }
+
+    pub fn variants(&self) -> &[(BoardMarker, MoveIndex)] {
+        self.variants.as_ref()
+    }
 }
 
 impl Default for UIBoard {
@@ -212,7 +226,8 @@ impl BoardRender {
 }
 
 impl UIBoard {
-    pub fn ui(&mut self, ui: &mut egui::Ui) {
+    #[tracing::instrument(level = "trace", skip(self, ui, just_clicked))]
+    pub fn ui(&mut self, ui: &mut egui::Ui, just_clicked: &mut bool) {
         let size = ui.available_size();
         ui.add_sized(size, |ui: &mut Ui| {
             egui::Frame::default()
@@ -246,6 +261,7 @@ impl UIBoard {
 
                     if response.clicked() || response.hovered() {
                         if response.clicked() {
+                            *just_clicked = true;
                             if let Some(pos) = response.interact_pointer_pos() {
                                 let closest = render.closest(&pos);
                                 if let Some(point) = closest {
@@ -261,35 +277,68 @@ impl UIBoard {
                                             marker.set_oneline_comment("A".to_owned());
                                             self.add_marker(marker);
                                         } else {
-                                            marker.color =
-                                                Stone::from_bool(self.moves.len() % 2 == 0);
-                                            self.add_marker(marker);
-                                            if let Some((_variant, index)) =
-                                                self.variants.iter().find(|(m, _)| m.point == point)
-                                            {
-                                                self.graph
-                                                    .add_edge(index, &self.graph.current_move())
-                                                    .unwrap()
+                                            let enter_variant =
+                                                if response.ctx.input().modifiers.command {
+                                                    if let Some((_, v)) = self
+                                                        .variants
+                                                        .iter()
+                                                        .find(|(m, _)| m.point == point)
+                                                    {
+                                                        Some(*v)
+                                                    } else {
+                                                        None
+                                                    }
+                                                } else {
+                                                    None
+                                                };
+                                            if let Some(variant) = enter_variant {
+                                                self.change_current_move(&variant)
+                                            } else {
+                                                marker.color =
+                                                    Stone::from_bool(self.moves.len() % 2 == 0);
+                                                let existed = self.add_marker(marker);
+                                                if !existed {
+                                                    if let Some((_variant, index)) = self
+                                                        .variants
+                                                        .iter()
+                                                        .find(|(m, _)| m.point == point)
+                                                    {
+                                                        if let Err(e) = self.graph
+                                                            .add_edge(
+                                                                index,
+                                                                &self.graph.current_move(),
+                                                            ) {
+                                                                tracing::error!(error = ?e, "Oh no!")
+                                                            }
+                                                    }
+                                                }
                                             }
                                         }
                                     }
                                     tracing::trace!(%self.board, "added marker");
                                 }
                             }
-                        }
-                    } else if let Some(pos) = response.hover_pos() {
-                        if let Some(point) = render.closest(&pos) {
-                            if self
-                                .board
-                                .get_point(point)
-                                .map_or(true, |m| m.color.is_empty())
-                            {
-                                painter.circle(
-                                    render.pos_at(&point),
-                                    3.0,
-                                    Color32::YELLOW,
-                                    Stroke::new(2.0, Color32::BLACK),
-                                )
+                        } else if let Some(pos) = response.hover_pos() {
+                            if let Some(closest) = render.closest(&pos) {
+                                if self
+                                    .board
+                                    .get_point(closest)
+                                    .map_or(true, |m| m.color.is_empty())
+                                {
+                                    painter.circle(
+                                        render.pos_at(&closest),
+                                        3.0,
+                                        Color32::BLUE,
+                                        Stroke::new(2.0, Color32::BLACK),
+                                    )
+                                }
+                                if self.variants.iter().any(|(m, _)| m.point == closest) {
+                                    egui::containers::show_tooltip_at_pointer(
+                                        ui.ctx(),
+                                        ui.id().with("__tooltip"),
+                                        |ui| Label::new("enter branch with ⌘ + click").ui(ui),
+                                    );
+                                }
                             }
                         }
                     }
@@ -301,8 +350,9 @@ impl UIBoard {
         });
     }
 
-    /// Add marker
-    pub fn add_marker(&mut self, marker: BoardMarker) {
+    /// Add marker, returns true if the marker already existed in the graph
+    #[tracing::instrument(skip(self))]
+    pub fn add_marker(&mut self, marker: BoardMarker) -> bool {
         let existing = if marker.command.is_move() {
             self.graph
                 .get_children(&self.graph.current_move())
@@ -328,26 +378,23 @@ impl UIBoard {
         let (board, moves) = self.graph.as_board(&idx).unwrap();
         self.board = board;
         self.moves = moves;
-        self.variants = (0..15 * 15)
-            .into_iter()
-            .map(|p| Point::from_1d(p, self.board.size()))
-            .filter_map(|p| {
-                self.graph.get_variant_weird(
-                    &self.graph.current_move(),
-                    &p,
-                    &Stone::from_bool(self.moves.len() % 2 != 0),
-                )
-            })
-            .map(|(b, m)| (b.clone(), m))
-            .collect();
+        self.update_variants();
+        existing.is_some()
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn change_current_move(&mut self, node: &MoveIndex) {
         let mut nodes = self.graph.down_to_root(node);
         nodes.reverse();
         self.graph.set_moves(nodes.len() - 1, nodes);
         let (board, moves) = self.graph.as_board(&self.graph.current_move()).unwrap();
         self.moves = moves;
+        self.board = board;
+        self.update_variants();
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn update_variants(&mut self) {
         self.variants = (0..15 * 15)
             .into_iter()
             .map(|p| Point::from_1d(p, self.board.size()))
@@ -361,8 +408,14 @@ impl UIBoard {
             .map(|(b, m)| (b.clone(), m))
             .collect();
         for (marker, _) in &self.variants {
-            self.board.set(marker.clone()).unwrap();
+            if let Some(marker) = self.board.get_point(marker.point) {
+                if !(marker.command.is_move()
+                    || marker.command.is_mark()
+                    || !marker.color.is_empty())
+                {
+                    self.board.set(marker.clone()).unwrap();
+                }
+            }
         }
-        self.board = board;
     }
 }

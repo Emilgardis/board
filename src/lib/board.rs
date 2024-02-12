@@ -111,6 +111,7 @@ impl Board {
         MoveIndex::new(self.graph.add_child(parent.node_index, 255, marker))
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn add_edge(
         &mut self,
         left: &MoveIndex,
@@ -160,19 +161,25 @@ impl Board {
     }
 
     #[must_use]
-    pub fn get_parent(&self, child: &MoveIndex) -> Option<MoveIndex> {
-        let mut parent = self.graph.parents(child.node_index);
-        let result = parent.walk_next(&self.graph);
-        if parent.walk_next(&self.graph) != None {
-            panic!("Error, shame on me! A MoveNode cannot have two parents!") //FIXME: This error message sucks.
+    #[tracing::instrument(skip(self))]
+    pub fn get_parent_strong(&self, child: &MoveIndex) -> Option<MoveIndex> {
+        let mut parents = self.graph.parents(child.node_index);
+        if let Some(mut parent) = parents.walk_next(&self.graph) {
+            while let Some(other) = parents.walk_next(&self.graph) {
+                if other.0 > parent.0 {
+                    parent = other;
+                    tracing::debug!("found better fit for parent");
+                }
+            }
+            Some(MoveIndex::new(parent))
         } else {
-            MoveIndex::from_option(result)
+            None
         }
     }
 
     #[must_use]
     pub fn get_siblings(&self, child: &MoveIndex) -> Vec<MoveIndex> {
-        let parent_opt = self.get_parent(child);
+        let parent_opt = self.get_parent_strong(child);
         match parent_opt {
             Some(parent) => self.get_children(&parent), // Not ideal, should not really return the original child.
             None => Vec::new(),
@@ -184,7 +191,7 @@ impl Board {
     /// Gives a simple vec of all the traversed parents including root.
     #[must_use]
     pub fn down_to_root(&self, node: &MoveIndex) -> Vec<MoveIndex> {
-        let mut parent: Option<MoveIndex> = self.get_parent(node);
+        let mut parent: Option<MoveIndex> = self.get_parent_strong(node);
         if parent.is_none() {
             return vec![*node];
         };
@@ -192,7 +199,7 @@ impl Board {
         let mut result: Vec<MoveIndex> = vec![*node];
         while let Some(new_parent) = parent {
             result.push(new_parent);
-            parent = self.get_parent(&new_parent);
+            parent = self.get_parent_strong(&new_parent);
         }
         result
     }
@@ -200,14 +207,14 @@ impl Board {
     /// Gives the amount of moves to travel to root.
     #[must_use]
     pub fn moves_to_root(&self, node: &MoveIndex) -> usize {
-        let mut parent: Option<MoveIndex> = self.get_parent(node);
+        let mut parent: Option<MoveIndex> = self.get_parent_strong(node);
         if parent.is_none() {
             return 0;
         };
         let mut length = 0;
         while let Some(new_parent) = parent {
             length += 1;
-            parent = self.get_parent(&new_parent);
+            parent = self.get_parent_strong(&new_parent);
         }
         length
     }
@@ -258,7 +265,7 @@ impl Board {
     #[must_use]
     pub fn down_to_branch(&self, node: &MoveIndex) -> Option<MoveIndex> {
         let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
-        let mut parent: Option<MoveIndex> = self.get_parent(node);
+        let mut parent: Option<MoveIndex> = self.get_parent_strong(node);
 
         // Ehm... FIXME: Not sure if this is right. We want to go down to branch, even if it is close.
         let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
@@ -273,7 +280,7 @@ impl Board {
             // If it is a lonechild len of siblings will be 1.
             let parentunw: MoveIndex = parent.unwrap(); // Safe as parent must be some for this code to run.
             branch_ancestors.push(parentunw); // Same as in fn down_to_branch, FIXME
-            parent = self.get_parent(&parentunw);
+            parent = self.get_parent_strong(&parentunw);
             siblings = self.get_siblings(&parentunw);
             // If a node is marked as a branch then it is also a branch.
             // FIXME: Is this correct?
@@ -335,13 +342,12 @@ impl Board {
                 if point2 == point && color2 == color {
                     return Some((marker, node));
                 } else {
-                    let node = node;
                     for right in self.get_right(&node) {
                         if let Some(marker @ BoardMarker { point: point2, .. }) =
                             self.get_move(right)
                         {
                             if point2 == point && color2 == color {
-                                return Some((marker, node));
+                                return Some((marker, right));
                             }
                         }
                     }
@@ -370,7 +376,7 @@ impl Board {
 
     #[must_use]
     pub fn prev_move(&self) -> Option<MoveIndex> {
-        self.move_list.get(self.index - 1).copied()
+        self.move_list.get(self.index.checked_sub(1)?).copied()
     }
 
     #[must_use]

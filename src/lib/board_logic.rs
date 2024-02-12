@@ -102,7 +102,7 @@ impl Point {
     #[must_use]
     pub fn is_valid(&self) -> bool {
         let Point { x, y, .. } = *self;
-        !((x != 0 || y != 0) && (!(1..=15).contains(&x) || y < 1 || y > 15))
+        x == 0 && y == 0 || !(!(1..=15).contains(&x) || !(1..=15).contains(&y))
     }
 }
 
@@ -141,7 +141,8 @@ impl BoardMarker {
     #[must_use]
     #[track_caller]
     pub fn new(point: Point, color: Stone) -> Self {
-        assert!(!point.is_null);
+        // FIXME: Why is null point not allowed?
+        // assert!(!point.is_null);
         Self {
             point,
             color,
