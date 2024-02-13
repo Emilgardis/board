@@ -2,7 +2,7 @@ use crate::board_logic::{BoardArr, BoardMarker, Point, Stone};
 use crate::errors::ParseError;
 use daggy;
 use daggy::Walker;
-use std::fmt;
+use std::{collections::BTreeSet, fmt};
 
 use std::str::FromStr;
 
@@ -82,7 +82,6 @@ impl FromStr for MoveIndex {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Board {
     graph: daggy::Dag<BoardMarker, BigU, BigU>,
-    pub marked_for_branch: Vec<NodeIndex>,
     /// List of moves currently done
     move_list: Vec<MoveIndex>,
     index: usize,
@@ -93,7 +92,6 @@ impl Board {
     pub fn new() -> Self {
         let mut board = Self {
             graph: daggy::Dag::with_capacity(255, 255),
-            marked_for_branch: vec![],
             move_list: vec![],
             index: 0,
         };
@@ -261,25 +259,17 @@ impl Board {
     }
     /// Move down in tree until there is a branch, i.e move has multiple children.
     ///
-    /// Returns the branching node, if any.
+    /// Returns the branching node, e.g the node which when moving up has multiple matches, if any.
     #[must_use]
     pub fn down_to_branch(&self, node: &MoveIndex) -> Option<MoveIndex> {
-        let mut branch_ancestors: Vec<MoveIndex> = Vec::new();
         let mut parent: Option<MoveIndex> = self.get_parent_strong(node);
 
         // Ehm... FIXME: Not sure if this is right. We want to go down to branch, even if it is close.
         let mut siblings: Vec<MoveIndex> = self.get_siblings(node);
+        // while siblings is not multiple.
         while parent.is_some() && siblings.len() == 1 {
-            if self
-                .marked_for_branch
-                .iter()
-                .any(|m| m == &parent.unwrap().node_index)
-            {
-                break;
-            }
             // If it is a lonechild len of siblings will be 1.
             let parentunw: MoveIndex = parent.unwrap(); // Safe as parent must be some for this code to run.
-            branch_ancestors.push(parentunw); // Same as in fn down_to_branch, FIXME
             parent = self.get_parent_strong(&parentunw);
             siblings = self.get_siblings(&parentunw);
             // If a node is marked as a branch then it is also a branch.
@@ -306,30 +296,104 @@ impl Board {
         Ok(())
     }
 
-    pub fn mark_for_branch(&mut self, node: MoveIndex) {
-        self.marked_for_branch.push(node.node_index);
-    }
-
-    // get the last branch.
+    /// get the first branch below this node. The children of this node are the branches
     #[must_use]
     pub fn get_down(&self, index: &MoveIndex) -> Option<MoveIndex> {
         self.down_to_branch(index)
     }
 
-    // get the last branch.
+    /// get the branches next to this node
     #[must_use]
     pub fn get_right(&self, index: &MoveIndex) -> Vec<MoveIndex> {
         self.get_children(index)
     }
 
+    /// Get indexes for all paths which lead to the same outcome
+    #[tracing::instrument(skip(self))]
+    pub fn get_variants(
+        &self,
+        index: MoveIndex,
+    ) -> Result<Vec<(BoardMarker, MoveIndex)>, ParseError> {
+        // recursive walk up the tree, discarding all branches that don't fit.
+        fn walk_up(
+            walked: Vec<(&Point, &Stone, &MoveIndex)>,
+            graph: &Board,
+            move_list: &Vec<(&Point, &Stone, &MoveIndex)>,
+            index: MoveIndex,
+        ) -> Vec<(BoardMarker, MoveIndex)> {
+            tracing::debug!(?walked, ?move_list, ?index);
+            // FIXME: currently we assume that no node can hit the same point twice, that might not be wise.
+
+            tracing::trace!("{:?}", &walked[..walked.len().saturating_sub(1)]);
+            tracing::trace!("{move_list:?}");
+            let mut diff = None;
+            for (point, stone, index) in &walked {
+                if !move_list.iter().any(|(p, s, _)| (p, s) == (point, stone)) {
+                    // if there's two mismatches, this couldn't possible be the right path...
+                    if diff.is_some() {
+                        tracing::trace!("found mismatches");
+                        return vec![];
+                    }
+                    diff = Some(index);
+                }
+            }
+
+            if walked.len() == move_list.len() + 1 && diff.is_some() {
+                // if exactly the same path, not a variant...
+                let mut same = true;
+                for (w, ml) in walked.iter().zip(move_list) {
+                    if w.0 != ml.0 || w.1 != ml.1 {
+                        same = false;
+                        break;
+                    }
+                }
+                if same {
+                    return vec![];
+                }
+                let diff = **diff.unwrap();
+                // we've found a variant, return it.
+                tracing::trace!("we got the variant, now give the end result");
+                return vec![(graph.get_move(diff).unwrap().clone(), index)];
+            }
+            let children = graph.get_children(&index);
+            tracing::trace!(?children);
+
+            let mut result = Vec::new();
+            for child in children {
+                if let Some(child_m) = graph.get_move(child) {
+                    let mut new_walked = walked.clone();
+                    new_walked.push((&child_m.point, &child_m.color, &child));
+                    result.extend(walk_up(new_walked, graph, move_list, child));
+                } else {
+                    todo!()
+                }
+            }
+            result
+        }
+
+        let mut moves = self
+            .move_list()
+            .iter()
+            .filter_map(|mi| Some((self.get_move(*mi)?, mi)))
+            .filter(|(m, _)| !m.color.is_empty())
+            .map(|(m, mi)| (&m.point, &m.color, mi))
+            .collect::<Vec<_>>();
+        tracing::info!(moves = moves.len().saturating_sub(1), "starting walk");
+        let result = walk_up(Default::default(), self, &moves, self.get_root());
+        tracing::info!("walk ended");
+        Ok(result)
+    }
+
+    /// Only used for renlib parsing
     #[must_use]
-    pub fn get_variant_weird(
+    pub(crate) fn get_variant_weird(
         &self,
         index: &MoveIndex,
         point: &Point,
         color: &Stone,
     ) -> Option<(&BoardMarker, MoveIndex)> {
         // this function does something.
+        // Get the first branch below this node
         if let Some(node) = self.get_down(index) {
             if let Some(
                 marker @ BoardMarker {
@@ -339,9 +403,11 @@ impl Board {
                 },
             ) = self.get_move(node)
             {
+                // if that branch is the same color and point, return it.
                 if point2 == point && color2 == color {
                     return Some((marker, node));
                 } else {
+                    // Get
                     for right in self.get_right(&node) {
                         if let Some(marker @ BoardMarker { point: point2, .. }) =
                             self.get_move(right)

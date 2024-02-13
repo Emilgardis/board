@@ -116,6 +116,28 @@ impl BoardRender {
         }
     }
 
+    /// paints the indexes on the, like 1-15 and A-O
+    fn indexes(&self, painter: &Painter) {
+        let BoardRender {
+            rect,
+            lines,
+            lines_f,
+            incr,
+            x_offset,
+            y_offset,
+            sq_size,
+            ..
+        } = *self;
+
+        let x_range = (x_offset + rect.left());
+        let y_range = (y_offset + rect.top());
+        for line in 0..lines {
+            painter.text(Pos2::new(x_range + incr * line as f32, y_range + incr * (lines_f-1.0) + 20.0), Align2::CENTER_CENTER, &char::from(b'A'+line as u8).to_string(), FontId::default(), Color32::DARK_GRAY);
+            painter.text(Pos2::new(x_range - 20.0, y_range + incr * line as f32 ), Align2::CENTER_CENTER, &(15-line).to_string(), FontId::default(), Color32::DARK_GRAY);
+        }
+
+    }
+
     fn pos_at(&self, point: &renju::board_logic::Point) -> Pos2 {
         let BoardRender {
             rect,
@@ -258,6 +280,7 @@ impl UIBoard {
                     };
 
                     render.lines(&painter);
+                    render.indexes(&painter);
 
                     if response.clicked() || response.hovered() {
                         if response.clicked() {
@@ -395,18 +418,8 @@ impl UIBoard {
 
     #[tracing::instrument(skip(self))]
     pub fn update_variants(&mut self) {
-        self.variants = (0..15 * 15)
-            .into_iter()
-            .map(|p| Point::from_1d(p, self.board.size()))
-            .filter_map(|p| {
-                self.graph.get_variant_weird(
-                    &self.graph.current_move(),
-                    &p,
-                    &Stone::from_bool(self.moves.len() % 2 != 0),
-                )
-            })
-            .map(|(b, m)| (b.clone(), m))
-            .collect();
+        self.variants = self.graph.get_variants(self.graph.current_move()).unwrap();
+
         for (marker, _) in &self.variants {
             if let Some(marker) = self.board.get_point(marker.point) {
                 if !(marker.command.is_move()

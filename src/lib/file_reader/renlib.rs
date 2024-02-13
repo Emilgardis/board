@@ -154,6 +154,7 @@ pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyr
             };
             last_move_black = !last_move_black;
         }
+        // Not sure this is correct, oh well...
         let next_move = board.get_variant_weird(&cur_move, &marker.point, &marker.color);
         if let Some((_, next)) = next_move {
             cur_move = next;

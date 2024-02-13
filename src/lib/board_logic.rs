@@ -17,7 +17,7 @@ macro_rules! p {
 }
 
 /// Enum for `Stone`,
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Stone {
     Empty,
@@ -89,7 +89,7 @@ impl fmt::Display for Stone {
     }
 }
 /// A coordinate located at (`x`, `y`)
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Point {
     /// Whether the point is outside the board, ie a null point.
@@ -208,13 +208,17 @@ impl fmt::Debug for BoardMarker {
             if !self.point.is_null {
                 write!(
                     f,
-                    "|[{:>2}, {:>2}]{:?}|",
+                    "|[{:>1},{:>2}]{}|",
                     ((self.point.x as u8 + 65u8) as char),
                     15 - self.point.y,
-                    self.color
+                    match self.color {
+                        Stone::Empty => ".",
+                        Stone::White => "O",
+                        Stone::Black => "X",
+                    }
                 )
             } else {
-                write!(f, "|     None    |")
+                write!(f, "| None |")
             }
         } else {
             f.debug_struct("BoardMarker")

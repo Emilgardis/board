@@ -289,7 +289,7 @@ pub fn parse_v3x(
                 _ => todo!(),
             },
         }
-        tracing::debug!(buf = format_args!("{:#4X?}", buf));
+        //tracing::debug!(buf = format_args!("{:#4X?}", buf));
         let point = if buf[0] == 0x00 {
             Point::null()
         } else {
@@ -327,7 +327,7 @@ pub fn parse_v3x(
             mark.board_text = Some(board_text)
         }
 
-        tracing::info!(?mark, ?command, "evaluated");
+        tracing::trace!(?mark, ?command, "evaluated");
         mark.command = command;
         vec.push(mark)
     }
