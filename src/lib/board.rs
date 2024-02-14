@@ -349,7 +349,7 @@ impl Board {
             if walked.len() == move_list.len() + 1 && diff.is_some() {
                 // if exactly the same path, not a variant...
                 let mut same = true;
-                for (w, ml) in walked.iter().zip(move_list) {
+                for (w, ml) in walked.iter().filter(|m| !m.1.is_empty()).zip(move_list.iter().filter(|m| !m.1.is_empty())) {
                     if w.0 != ml.0 || w.1 != ml.1 {
                         same = false;
                         break;
