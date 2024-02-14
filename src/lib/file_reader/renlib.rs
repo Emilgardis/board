@@ -132,31 +132,38 @@ impl Command {
     }
 }
 
-#[tracing::instrument(skip(file))]
 pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyre::Report> {
     let moves = match read_header(&mut file)? {
-        v @ (Version::V30 | Version::V34) => parser::parse_v3x(file, v),
+        (v @ (Version::V30 | Version::V34), i) => parser::parse_v3x(file, v, i),
     }?;
     let mut _new_moves = 0;
     let mut first_move = None;
-    let mut last_move_black = false;
+    let mut check_root = true;
     let mut stack = vec![];
     // An adaptation of CRenLibDoc::AddLibrary
     board.move_to_root();
     let mut cur_move = board.current_move();
-
+    tracing::debug!("starting parse of file");
     for mut marker in moves {
+        tracing::trace!(marker = format!("{:#?}", marker), ?cur_move, "processing");
         if marker.command.is_move() {
-            marker.color = if last_move_black {
-                Stone::White
-            } else {
-                Stone::Black
+            let last_move = board
+                .move_list()
+                .iter()
+                .rev()
+                .filter_map(|i| board.get_move(*i))
+                .map(|m| m.color)
+                .find(|c| !c.is_empty())
+                .unwrap_or(Stone::White);
+            marker.color = match last_move {
+                Stone::Black => Stone::White,
+                _ => Stone::Black,
             };
-            last_move_black = !last_move_black;
         }
         // Not sure this is correct, oh well...
         let next_move = board.get_variant_weird(&cur_move, &marker.point, &marker.color);
-        if let Some((_, next)) = next_move {
+        if let Some((m, next)) = next_move {
+            tracing::debug!(variant = ?(m, next), "found variant");
             cur_move = next;
         } else {
             let next = board.insert_move(cur_move, marker.clone());
@@ -168,7 +175,12 @@ pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyr
                 }
             }
         }
-        board.add_move_to_move_list(cur_move);
+        if check_root && marker.point.is_null {
+            check_root = false;
+        } else {
+            board.add_move_to_move_list(cur_move);
+        }
+
         if marker.command.is_down() {
             stack.push(board.index())
         }
@@ -183,10 +195,10 @@ pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyr
     Ok(())
 }
 
-pub fn read_header(mut file: impl Read) -> Result<Version, ParseError> {
+pub fn read_header(mut file: impl Read) -> Result<(Version, usize), ParseError> {
     let mut header = [0u8; 20];
     file.read_exact(&mut header)?;
-    validate_lib(&header)
+    Ok((validate_lib(&header)?, 20))
 }
 
 pub fn validate_lib(header: &[u8]) -> Result<Version, ParseError> {

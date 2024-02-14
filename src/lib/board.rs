@@ -105,7 +105,9 @@ impl Board {
         MoveIndex::new_node(self.graph.add_node(marker))
     }
 
+    #[tracing::instrument(skip(self))]
     pub fn insert_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
+        tracing::trace!(index_in_file = format!("0x{:X}", marker.index_in_file.unwrap_or_default()), "inserting move to graph");
         MoveIndex::new(self.graph.add_child(parent.node_index, 255, marker))
     }
 
@@ -119,6 +121,7 @@ impl Board {
             .add_edge(left.node_index, right.node_index, 0)
             .map(|_| ())
     }
+    /// Add move to graph and move_list
     pub fn add_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
         let idx = self.insert_move(parent, marker.clone());
         if marker.command.is_move() {
@@ -126,10 +129,13 @@ impl Board {
         }
         idx
     }
+    #[tracing::instrument(skip(self))]
     pub fn add_move_to_move_list(&mut self, index: MoveIndex) {
+        tracing::trace!(move_list = ?self.move_list, "adding move to move list");
         self.move_list.push(index);
         self.index = self.index.checked_add(1).unwrap();
     }
+
 
     pub fn set_moves(&mut self, idx: usize, list: Vec<MoveIndex>) {
         self.move_list = list;
@@ -259,7 +265,7 @@ impl Board {
     }
     /// Move down in tree until there is a branch, i.e move has multiple children.
     ///
-    /// Returns the branching node, e.g the node which when moving up has multiple matches, if any.
+    /// Returns the branching node, e.g the node which has multiple children, if any.
     #[must_use]
     pub fn down_to_branch(&self, node: &MoveIndex) -> Option<MoveIndex> {
         let mut parent: Option<MoveIndex> = self.get_parent_strong(node);
@@ -297,6 +303,8 @@ impl Board {
     }
 
     /// get the first branch below this node. The children of this node are the branches
+    ///
+    /// Only works if the node is marked as down
     #[must_use]
     pub fn get_down(&self, index: &MoveIndex) -> Option<MoveIndex> {
         self.down_to_branch(index)
@@ -385,12 +393,14 @@ impl Board {
     }
 
     /// Only used for renlib parsing
+    ///
+    /// RenLib/RenLibDoc.cpp:625
     #[must_use]
     pub(crate) fn get_variant_weird(
         &self,
         index: &MoveIndex,
         point: &Point,
-        color: &Stone,
+        color: &Stone
     ) -> Option<(&BoardMarker, MoveIndex)> {
         // this function does something.
         // Get the first branch below this node
@@ -399,20 +409,24 @@ impl Board {
                 marker @ BoardMarker {
                     point: point2,
                     color: color2,
+                    command,
                     ..
                 },
             ) = self.get_move(node)
             {
-                // if that branch is the same color and point, return it.
-                if point2 == point && color2 == color {
+                if !command.is_down() {
+                    return None;
+                }
+                // if that branch is the same point return it.
+                if point2 == point  {
                     return Some((marker, node));
-                } else {
+                } else if command.is_right(){
                     // Get
                     for right in self.get_right(&node) {
                         if let Some(marker @ BoardMarker { point: point2, .. }) =
                             self.get_move(right)
                         {
-                            if point2 == point && color2 == color {
+                            if point2 == point  {
                                 return Some((marker, right));
                             }
                         }
@@ -451,7 +465,7 @@ impl Board {
     }
 
     pub fn move_to_root(&mut self) {
-        self.index = 0;
+        self.set_index(0).unwrap();
     }
 
     #[must_use]
@@ -462,7 +476,7 @@ impl Board {
     pub fn set_index(&mut self, index: usize) -> Result<(), IndexOutOfBoundsError> {
         if index <= self.move_list.len() {
             self.index = index;
-            // self.move_list = self.move_list[..index].to_owned();
+            self.move_list.truncate(index+1);
             Ok(())
         } else {
             Err(IndexOutOfBoundsError)

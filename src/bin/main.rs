@@ -20,6 +20,7 @@ fn main() -> Result<(), color_eyre::Report> {
                 .required(true),
         )
         .arg(Arg::new("output").short('o').help("File to output to"))
+        .arg(Arg::new("no-interactive").short('I'))
         .get_matches();
 
     let path = Path::new(matches.value_of("file").unwrap());
@@ -29,8 +30,10 @@ fn main() -> Result<(), color_eyre::Report> {
     eprintln!("{:?}", graph);
     //let mut file = OpenOptions::new().write(true).create(true).open(format!("{}.dot",path.file_stem().unwrap().to_str().unwrap())).expect("Couldn't create .dot file");
     //write!(file, "{:?}", graph).chain_err(|| "while writing to file");
+    if matches.is_present("no-interactive") {
+        return Ok(());
+    }
     let mut rl = rustyline::Editor::<()>::new()?;
-
     loop {
         let read = rl.readline(">> ");
         //tracing::info!("{:?}", read);

@@ -135,7 +135,7 @@ pub fn open_file_path(path: &Path) -> Result<Board, color_eyre::Report> {
     Ok(board)
 }
 
-#[tracing::instrument(skip(bytes))]
+#[tracing::instrument(skip(bytes, board))]
 pub fn read_bytes(
     bytes: impl std::io::Read,
     filetype: Option<&FileType>,

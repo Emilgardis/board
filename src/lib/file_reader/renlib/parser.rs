@@ -20,7 +20,7 @@ mod tests {
 
     fn parse_v30(bytes: &'static [u8]) -> Result<Vec<BoardMarker>, color_eyre::Report> {
         let mut bytes = buf(bytes);
-        parse_v3x(&mut bytes, Version::V30)
+        parse_v3x(&mut bytes, Version::V30, 0)
     }
 
     #[test]
@@ -34,9 +34,25 @@ mod tests {
                 multiline_comment: None,
                 board_text: None,
                 command: Command(CommandVariant::empty()),
+                index_in_file: Some(0)
             },]
         );
         Ok(())
+    }
+
+    #[test]
+    fn lol() {
+        dbg!(parse_v30(&[
+            0x84, 0x00, 0x73, 0x00, 0x96, 0x00, 0x74, 0x00, 0xc9, 0x48, 0x70, 0x61, 0x70, 0x61,
+            0x54, 0x72, 0x65, 0x78, 0x20, 0x2d, 0x20, 0x62, 0x61, 0x69, 0x77, 0x63, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x47, 0x61, 0x6d, 0x65, 0x20, 0x77,
+            0x6f, 0x6e, 0x20, 0x62, 0x79, 0x20, 0x62, 0x61, 0x69, 0x77, 0x63, 0x2e, 0x20, 0x20,
+            0x20, 0x20, 0x20, 0x20, 0x20, 0x3c, 0x52, 0x65, 0x6e, 0x6a, 0x75, 0x20, 0x42, 0x6f,
+            0x61, 0x72, 0x64, 0x20, 0x31, 0x38, 0x33, 0x39, 0x5f, 0x30, 0x33, 0x2e, 0x74, 0x78,
+            0x74, 0x3e, 0x00, 0x00, 0x87, 0x00, 0x67, 0x00, 0x69, 0x00, 0x96, 0x08, 0x08, 0x54, 0x68, 0x69, 0x73, 0x20, 0x63, 0x6F, 0x6D, 0x6D, 0x65, 0x6E,
+            0x74, 0x20, 0x6F, 0x6E, 0x20, 0x37, 0x38, 0x00, 0x7a, 0x00,
+            0x8b, 0x00
+        ]));
     }
 
     #[test]
@@ -173,7 +189,8 @@ mod tests {
                     oneline_comment: None,
                     multiline_comment: Some("This comment on 78".to_owned()),
                     board_text: None,
-                    command: Command(CommandVariant::COMMENT)
+                    command: Command(CommandVariant::COMMENT),
+                    index_in_file: None,
                 },
                 BoardMarker {
                     point: Point::from_byte(0x87)?,
@@ -181,7 +198,8 @@ mod tests {
                     oneline_comment: None,
                     multiline_comment: Some("Im from 87".to_owned()),
                     board_text: None,
-                    command: Command(CommandVariant::RIGHT | CommandVariant::COMMENT)
+                    command: Command(CommandVariant::RIGHT | CommandVariant::COMMENT),
+                    index_in_file: None,
                 }
             ]
         );
@@ -274,16 +292,18 @@ mod tests {
     }
 }
 
+#[tracing::instrument(skip(bytes))]
 pub fn parse_v3x(
     mut bytes: impl std::io::Read,
     _version: Version,
+    mut index: usize,
 ) -> Result<Vec<BoardMarker>, color_eyre::eyre::Report> {
     let mut vec = vec![];
     let mut buf: [u8; 2] = [0, 0];
 
     loop {
         match bytes.read_exact(&mut buf) {
-            Ok(_) => (),
+            Ok(_) => index += 2,
             Err(e) => match e.kind() {
                 std::io::ErrorKind::UnexpectedEof => break,
                 _ => todo!(),
@@ -296,10 +316,12 @@ pub fn parse_v3x(
             Point::from_byte(buf[0])?
         };
         let mut mark = BoardMarker::new(point, Stone::Empty);
+        mark.index_in_file = Some(index - 2);
         let command = Command::new(u32::from(buf[1]))?;
 
         let command = if command.is_extension() {
             bytes.read_exact(&mut buf)?;
+            index += 2;
             tracing::debug!("extension: {:#4b}, {:#4b}", buf[0], buf[1]);
             let mut cmd = command.0.bits & 0xFF;
 
@@ -308,23 +330,25 @@ pub fn parse_v3x(
         } else {
             command
         };
-        tracing::debug!(?mark.point, ?command, "parsed");
 
         if command.is_comment() {
-            let (one, multi) = parse_comments(&mut bytes)?;
+            let ((one, multi), read) = parse_comments(&mut bytes)?;
             mark.oneline_comment = one;
             mark.multiline_comment = multi;
             tracing::debug!(?mark.oneline_comment, ?mark.multiline_comment);
+            index += read;
         } else if command.is_old_comment() {
-            let (one, multi) = parse_old_comments(&mut bytes)?;
+            let ((one, multi), read) = parse_old_comments(&mut bytes)?;
             mark.oneline_comment = one;
             mark.multiline_comment = multi;
             tracing::debug!(?mark.oneline_comment, ?mark.multiline_comment);
+            index += read;
         }
 
         if command.is_board_text() {
-            let board_text = parse_board_text(&mut bytes)?;
-            mark.board_text = Some(board_text)
+            let (board_text, read) = parse_board_text(&mut bytes)?;
+            mark.board_text = Some(board_text);
+            index += read;
         }
 
         tracing::trace!(?mark, ?command, "evaluated");
@@ -334,14 +358,16 @@ pub fn parse_v3x(
     Ok(vec)
 }
 
-pub fn read_text(mut bytes: impl std::io::Read) -> Result<Vec<u8>, std::io::Error> {
+pub fn read_text(mut bytes: impl std::io::Read) -> Result<(Vec<u8>, usize), std::io::Error> {
     // TODO: Should be moved to be initialized once
     let mut buf = vec![];
+    let mut index = 0;
 
     // this cannot be a read_until, as we need to do it in chunks of two.
     let mut t_buf = [0; 2];
     loop {
         bytes.read_exact(&mut t_buf)?;
+        index += 2;
         match t_buf {
             [0, 0] => {
                 buf.push(0);
@@ -353,7 +379,7 @@ pub fn read_text(mut bytes: impl std::io::Read) -> Result<Vec<u8>, std::io::Erro
         }
     }
     assert!(buf.len() > 1);
-    Ok(buf)
+    Ok((buf, index))
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -362,15 +388,18 @@ pub enum ParseBoardTextError {
     Io(#[from] std::io::Error),
 }
 
-fn parse_board_text(bytes: impl std::io::Read) -> Result<String, ParseBoardTextError> {
+fn parse_board_text(bytes: impl std::io::Read) -> Result<(String, usize), ParseBoardTextError> {
     // Board text is a null padded null-ending string, iff len % 2 == 1
     // so: the string "AA\0" becomes "AA\0\0"
 
-    let buf = read_text(bytes)?;
+    let (buf, read) = read_text(bytes)?;
     assert!(buf.len() > 1);
     assert!(buf.last().unwrap() == &0);
 
-    Ok(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string())
+    Ok((
+        String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string(),
+        read,
+    ))
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -381,7 +410,7 @@ pub enum ParseCommentError {
 
 pub fn parse_comments(
     bytes: impl std::io::Read,
-) -> Result<(Option<String>, Option<String>), ParseCommentError> {
+) -> Result<((Option<String>, Option<String>), usize), ParseCommentError> {
     // The comments are either:
     //
     // oneline + 0
@@ -392,7 +421,7 @@ pub fn parse_comments(
     let mut one = None;
     let mut multi = None;
 
-    let buf = read_text(bytes)?;
+    let (buf, read) = read_text(bytes)?;
 
     if &0x08 == buf.first().unwrap() {
         // FIXME: Could be empty
@@ -404,16 +433,16 @@ pub fn parse_comments(
         one = Some(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string());
     }
 
-    Ok((one, multi))
+    Ok(((one, multi), read))
 }
 
 pub fn parse_old_comments(
     bytes: impl std::io::Read,
-) -> Result<(Option<String>, Option<String>), ParseCommentError> {
+) -> Result<((Option<String>, Option<String>), usize), ParseCommentError> {
     let mut one = None;
     let mut multi = None;
-
-    let buf = read_text(bytes)?
+    let (buf, read) = read_text(bytes)?;
+    let buf = buf
         .into_iter()
         .map(|c| match c {
             // FIXME: There has to be more like this, no?
@@ -436,5 +465,5 @@ pub fn parse_old_comments(
     } else {
         one = Some(String::from_utf8_lossy(&buf[..buf.len() - 1]).to_string());
     }
-    Ok((one, multi))
+    Ok(((one, multi), read))
 }

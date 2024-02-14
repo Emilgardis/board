@@ -135,6 +135,7 @@ pub struct BoardMarker {
     pub multiline_comment: Option<String>,
     pub board_text: Option<String>,
     pub command: Command, // TODO: Frank, UINT doesn't have enough bits for 0xffff00
+    pub index_in_file: Option<usize>,
 }
 
 impl BoardMarker {
@@ -150,6 +151,7 @@ impl BoardMarker {
             multiline_comment: None,
             board_text: None,
             command: Command::new(0).unwrap(),
+            index_in_file: None,
         }
     }
 
@@ -161,6 +163,7 @@ impl BoardMarker {
             multiline_comment: None,
             board_text: None,
             command: Command::new(0).unwrap(),
+            index_in_file: None,
         }
     }
 
@@ -179,6 +182,7 @@ impl BoardMarker {
             multiline_comment: None,
             board_text: None,
             command: Command::new(info)?,
+            index_in_file: None,
         })
     }
     // Are the following functions needed?
@@ -228,6 +232,10 @@ impl fmt::Debug for BoardMarker {
                 .field("multiline_comment", &self.multiline_comment)
                 .field("board_text", &self.board_text)
                 .field("command", &self.command)
+                .field(
+                    "index_in_file",
+                    &format!("0x{:X}", self.index_in_file.unwrap_or_default()),
+                )
                 .finish()
         }
     }
