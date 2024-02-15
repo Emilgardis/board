@@ -213,6 +213,11 @@ impl BoardRender {
         }
     }
 
+    fn center(&self) -> Pos2 {
+        let center_x = self.rect.left() + self.x_offset + self.incr * ((self.lines / 2) as f32);
+        let center_y = self.rect.top() + self.y_offset + self.incr * ((self.lines / 2) as f32);
+        Pos2::new(center_x, center_y)
+    }
     fn closest(&self, pos: &Pos2) -> Option<Point> {
         let BoardRender {
             rect,
