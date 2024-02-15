@@ -276,7 +276,7 @@ impl Point {
     }
     /// Makes a `Point` at (`x`, `y`)
     #[must_use]
-    pub fn new(x: u32, y: u32) -> Self {
+    pub const fn new(x: u32, y: u32) -> Self {
         Self {
             is_null: false,
             x,

@@ -88,6 +88,22 @@ impl eframe::App for RenjuApp {
                         frame.close();
                     }
                 });
+                ui.menu_button("Transform", |ui| {
+                    if ui.button("rotate").clicked() {
+                        board
+                            .transform_mut()
+                            .rotate(renju::board::Rotation::TwoSeventy);
+                    }
+                    if ui.button("Mirror -").clicked() {
+                        board.transform_mut().mirror = renju::board::Mirror::Horizontal;
+                    }
+                    if ui.button("Mirror |").clicked() {
+                        board.transform_mut().mirror = renju::board::Mirror::Vertical;
+                    }
+                    if ui.button("Mirror None").clicked() {
+                        board.transform_mut().mirror = renju::board::Mirror::None;
+                    }
+                });
             });
         });
 
@@ -137,19 +153,17 @@ impl eframe::App for RenjuApp {
                     {
                         board.change_current_move(&prev.unwrap())
                     }
-
                 });
-                let moves = board.graph()
-                        .move_list()
-                        .iter()
-                        .filter_map(|i| board.graph().get_move(*i))
-                        .collect::<Vec<_>>();
-                let moves_i = board.graph()
-                        .move_list()
-                        .iter()
-                        .collect::<Vec<_>>();
-                    ui.text_edit_multiline(&mut format!("Moves: {moves:?}"));
-                    ui.text_edit_multiline(&mut format!("Moves I: {moves_i:?}"));
+                let moves = board
+                    .graph()
+                    .move_list()
+                    .iter()
+                    .filter_map(|i| board.graph().get_move(*i))
+                    .collect::<Vec<_>>();
+                let moves_i = board.graph().move_list().iter().collect::<Vec<_>>();
+                ui.text_edit_multiline(&mut format!("Moves: {moves:?}"));
+                ui.text_edit_multiline(&mut format!("Moves I: {moves_i:?}"));
+                ui.text_edit_multiline(&mut format!("Transform: {:?}", board.transform()));
 
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {
                     let current = board.current_move_mut();

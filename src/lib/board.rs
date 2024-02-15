@@ -87,6 +87,14 @@ pub struct Board {
     index: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum VariantType {
+    /// Is a variant which may be a transformation also.
+    Variant,
+    /// Is a transformation of this same branch
+    Transformation,
+}
+
 impl Board {
     #[must_use]
     pub fn new() -> Self {
@@ -107,7 +115,10 @@ impl Board {
 
     #[tracing::instrument(skip(self))]
     pub fn insert_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
-        tracing::trace!(index_in_file = format!("0x{:X}", marker.index_in_file.unwrap_or_default()), "inserting move to graph");
+        tracing::trace!(
+            index_in_file = format!("0x{:X}", marker.index_in_file.unwrap_or_default()),
+            "inserting move to graph"
+        );
         MoveIndex::new(self.graph.add_child(parent.node_index, 255, marker))
     }
 
@@ -135,7 +146,6 @@ impl Board {
         self.move_list.push(index);
         self.index = self.index.checked_add(1).unwrap();
     }
-
 
     pub fn set_moves(&mut self, idx: usize, list: Vec<MoveIndex>) {
         self.move_list = list;
@@ -249,7 +259,7 @@ impl Board {
         //tracing::info!("board is = {}", board.board);
         Ok((board, moves))
     }
-    /// Move up in the tree until there is a branch, i.e multiple choices for the next move.
+    /// Move up in the tree until there is a branch, i.e multiple choices for the next move, or no more moves.
     ///
     /// Returns the children that were walked  and the children that caused the branch, if any.
     #[must_use]
@@ -318,50 +328,111 @@ impl Board {
 
     /// Get indexes for all paths which lead to the same outcome
     #[tracing::instrument(skip(self))]
-    pub fn get_variants(
+    pub fn get_variants_and_transformations(
         &self,
         index: MoveIndex,
-    ) -> Result<Vec<(BoardMarker, MoveIndex)>, ParseError> {
+    ) -> Result<Vec<(BoardMarker, MoveIndex, Transformation, VariantType)>, ParseError> {
         // recursive walk up the tree, discarding all branches that don't fit.
         fn walk_up(
-            walked: Vec<(&Point, &Stone, &MoveIndex)>,
+            walked: Vec<(Point, &Stone, &MoveIndex)>,
             graph: &Board,
             move_list: &Vec<(&Point, &Stone, &MoveIndex)>,
             index: MoveIndex,
-        ) -> Vec<(BoardMarker, MoveIndex)> {
+        ) -> Vec<(BoardMarker, MoveIndex, Transformation, VariantType)> {
             tracing::debug!(?walked, ?move_list, ?index);
             // FIXME: currently we assume that no node can hit the same point twice, that might not be wise.
 
             tracing::trace!("{:?}", &walked[..walked.len().saturating_sub(1)]);
             tracing::trace!("{move_list:?}");
-            let mut diff = None;
-            for (point, stone, index) in &walked {
-                if !move_list.iter().any(|(p, s, _)| (p, s) == (point, stone)) {
-                    // if there's two mismatches, this couldn't possible be the right path...
-                    if diff.is_some() {
-                        tracing::trace!("found mismatches");
-                        return vec![];
+
+            let mut diff_explored = 0;
+            'transform: for transform in Transformation::types() {
+                // FIXME: single H8 is special, there are no valid variants on it except identity.
+                if transform != Transformation::identity()
+                    && matches!(
+                        move_list[..],
+                        [(
+                            &Point {
+                                x: 7,
+                                y: 7,
+                                is_null: false
+                            },
+                            ..
+                        )]
+                    )
+                {
+                    diff_explored += 1;
+                    continue;
+                }
+
+                let mut diff = None;
+                let mut walked = walked
+                    .iter()
+                    .map(|(p, c, i)| (transform.apply(*p), c, i))
+                    .collect::<Vec<_>>();
+
+                // FIXME: We should discard transforms we already know are not possible.
+                // We could just check the last two moves walked I think
+                for (point, stone, &index) in &walked {
+                    if !move_list.iter().any(|(p, s, _)| (p, s) == (&&point, stone)) {
+                        // if there's two mismatches, this couldn't possible be the right path...
+                        if diff.is_some() {
+                            tracing::trace!("found mismatches");
+                            diff_explored += 1;
+                            continue 'transform;
+                        }
+                        diff = Some((point, index));
                     }
-                    diff = Some(index);
+                }
+
+                if walked.len() == move_list.len() + 1 && diff.is_some() {
+                    tracing::debug!("diff {diff:?}, walked: {walked:?}, move_list: {move_list:?}");
+                    // if exactly the same path, not a variant...
+                    let mut same = true;
+                    for (w, ml) in walked
+                        .iter()
+                        .filter(|m| !m.1.is_empty())
+                        .zip(move_list.iter().filter(|m| !m.1.is_empty()))
+                    {
+                        if w.0 != *ml.0 || w.1 != &ml.1 {
+                            same = false;
+                            break;
+                        }
+                    }
+                    if same && transform == Transformation::identity() {
+                        continue;
+                    }
+                    if same
+                        && matches!(
+                            transform,
+                            Transformation {
+                                rotation: Rotation::None,
+                                mirror: Mirror::Horizontal | Mirror::Vertical
+                            }
+                        )
+                    {
+                        continue;
+                    }
+                    let diff = diff.unwrap();
+                    // we've found a variant, return it.
+                    let mut marker = graph.get_move(*diff.1).unwrap().clone();
+                    marker.point = *diff.0;
+                    tracing::debug!("we got a variant on {transform:?}, {marker:?} at {index:?}");
+                    let variant_type = if move_list
+                        .iter()
+                        .map(|(p, ..)| p)
+                        .zip(walked.iter().map(|(p, ..)| p))
+                        .any(|(p1, p2)| p1 != &p2)
+                    {
+                        VariantType::Variant
+                    } else {
+                        VariantType::Transformation
+                    };
+                    return vec![(marker, index, transform, variant_type)];
                 }
             }
-
-            if walked.len() == move_list.len() + 1 && diff.is_some() {
-                // if exactly the same path, not a variant...
-                let mut same = true;
-                for (w, ml) in walked.iter().filter(|m| !m.1.is_empty()).zip(move_list.iter().filter(|m| !m.1.is_empty())) {
-                    if w.0 != ml.0 || w.1 != ml.1 {
-                        same = false;
-                        break;
-                    }
-                }
-                if same {
-                    return vec![];
-                }
-                let diff = **diff.unwrap();
-                // we've found a variant, return it.
-                tracing::trace!("we got the variant, now give the end result");
-                return vec![(graph.get_move(diff).unwrap().clone(), index)];
+            if diff_explored == Transformation::types().len() {
+                return vec![];
             }
             let children = graph.get_children(&index);
             tracing::trace!(?children);
@@ -370,7 +441,7 @@ impl Board {
             for child in children {
                 if let Some(child_m) = graph.get_move(child) {
                     let mut new_walked = walked.clone();
-                    new_walked.push((&child_m.point, &child_m.color, &child));
+                    new_walked.push((child_m.point, &child_m.color, &child));
                     result.extend(walk_up(new_walked, graph, move_list, child));
                 } else {
                     todo!()
@@ -386,6 +457,9 @@ impl Board {
             .filter(|(m, _)| !m.color.is_empty())
             .map(|(m, mi)| (&m.point, &m.color, mi))
             .collect::<Vec<_>>();
+        if moves.is_empty() {
+            return Ok(vec![]);
+        }
         tracing::info!(moves = moves.len().saturating_sub(1), "starting walk");
         let result = walk_up(Default::default(), self, &moves, self.get_root());
         tracing::info!("walk ended");
@@ -400,7 +474,7 @@ impl Board {
         &self,
         index: &MoveIndex,
         point: &Point,
-        color: &Stone
+        color: &Stone,
     ) -> Option<(&BoardMarker, MoveIndex)> {
         // this function does something.
         // Get the first branch below this node
@@ -418,15 +492,15 @@ impl Board {
                     return None;
                 }
                 // if that branch is the same point return it.
-                if point2 == point  {
+                if point2 == point {
                     return Some((marker, node));
-                } else if command.is_right(){
+                } else if command.is_right() {
                     // Get
                     for right in self.get_right(&node) {
                         if let Some(marker @ BoardMarker { point: point2, .. }) =
                             self.get_move(right)
                         {
-                            if point2 == point  {
+                            if point2 == point {
                                 return Some((marker, right));
                             }
                         }
@@ -476,7 +550,7 @@ impl Board {
     pub fn set_index(&mut self, index: usize) -> Result<(), IndexOutOfBoundsError> {
         if index <= self.move_list.len() {
             self.index = index;
-            self.move_list.truncate(index+1);
+            self.move_list.truncate(index + 1);
             Ok(())
         } else {
             Err(IndexOutOfBoundsError)
@@ -485,6 +559,190 @@ impl Board {
 
     pub fn move_list(&self) -> &[MoveIndex] {
         self.move_list.as_ref()
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Transformation {
+    pub rotation: Rotation,
+    pub mirror: Mirror,
+}
+impl Transformation {
+    pub fn rotate(&mut self, rotation: Rotation) {
+        self.rotation.rotate(rotation);
+    }
+    pub const fn identity() -> Self {
+        Self {
+            rotation: Rotation::None,
+            mirror: Mirror::None,
+        }
+    }
+
+    pub fn transform(mut self, transform: Transformation) -> Self {
+        self.mirror = match (self.mirror, transform.mirror) {
+            (Mirror::Horizontal, Mirror::Vertical) | (Mirror::Vertical, Mirror::Horizontal) => {
+                self.rotate(Rotation::OneEighty);
+                self.mirror
+            }
+            (Mirror::None, m) | (m, Mirror::None) => m,
+            (Mirror::Horizontal, Mirror::Horizontal) | (Mirror::Vertical, Mirror::Vertical) => {
+                Mirror::None
+            }
+        };
+
+        self.rotate(transform.rotation);
+        self
+    }
+
+    pub const fn apply(&self, point: Point) -> Point {
+        self.mirror.apply(self.rotation.apply(point))
+    }
+    pub const fn types() -> [Transformation; 12] {
+        use self::{Mirror::*, Rotation::*};
+        [
+            Transformation {
+                rotation: Rotation::None,
+                mirror: Mirror::None,
+            },
+            Transformation {
+                rotation: Rotation::None,
+                mirror: Horizontal,
+            },
+            Transformation {
+                rotation: Rotation::None,
+                mirror: Vertical,
+            },
+            Transformation {
+                rotation: Ninety,
+                mirror: Mirror::None,
+            },
+            Transformation {
+                rotation: Ninety,
+                mirror: Horizontal,
+            },
+            Transformation {
+                rotation: Ninety,
+                mirror: Vertical,
+            },
+            Transformation {
+                rotation: OneEighty,
+                mirror: Mirror::None,
+            },
+            Transformation {
+                rotation: OneEighty,
+                mirror: Horizontal,
+            },
+            Transformation {
+                rotation: OneEighty,
+                mirror: Vertical,
+            },
+            Transformation {
+                rotation: TwoSeventy,
+                mirror: Mirror::None,
+            },
+            Transformation {
+                rotation: TwoSeventy,
+                mirror: Horizontal,
+            },
+            Transformation {
+                rotation: TwoSeventy,
+                mirror: Vertical,
+            },
+        ]
+    }
+}
+
+#[test]
+fn unique_rotations() {
+    let variants = Transformation::types();
+    let moves = vec![
+        Point::new(0, 0),
+        Point::new(8, 7),
+        Point::new(0, 14),
+        Point::new(14, 0),
+        Point::new(14, 3),
+        Point::new(14, 14),
+    ];
+
+    for variant in variants.iter() {
+        for other in variants.iter().filter(|v| v != &variant) {
+            assert_ne!(
+                moves
+                    .clone()
+                    .into_iter()
+                    .map(|p| variant.apply(p))
+                    .collect::<Vec<_>>(),
+                moves
+                    .clone()
+                    .into_iter()
+                    .map(|p| other.apply(p))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum Rotation {
+    None,
+    Ninety,
+    OneEighty,
+    TwoSeventy,
+}
+
+impl Rotation {
+    pub const fn apply(&self, p: Point) -> Point {
+        // Assumes grid of 15x15
+        match self {
+            Rotation::None => p,
+            Rotation::Ninety => Point::new(p.y, 14 - p.x),
+            Rotation::OneEighty => Point::new(14 - p.x, 14 - p.y),
+            Rotation::TwoSeventy => Point::new(14 - p.y, p.x),
+        }
+    }
+
+    pub const fn rotations() -> &'static [Rotation] {
+        &[
+            Rotation::None,
+            Rotation::Ninety,
+            Rotation::OneEighty,
+            Rotation::TwoSeventy,
+        ]
+    }
+    pub fn rotate(&mut self, rotation: Rotation) {
+        *self = *Rotation::rotations()
+            .iter()
+            .cycle()
+            .skip_while(|r| *r != &*self)
+            .nth(match rotation {
+                Rotation::None => return,
+                Rotation::Ninety => 1,
+                Rotation::OneEighty => 2,
+                Rotation::TwoSeventy => 3,
+            })
+            .unwrap();
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum Mirror {
+    None,
+    Horizontal,
+    Vertical,
+}
+
+impl Mirror {
+    pub const fn apply(&self, p: Point) -> Point {
+        // Assumes grid of 15x15
+        match self {
+            Mirror::None => p,
+            Mirror::Horizontal => Point::new(14 - p.x, p.y),
+            Mirror::Vertical => Point::new(p.x, 14 - p.y),
+        }
+    }
+
+    pub const fn mirrors() -> &'static [Mirror] {
+        &[Mirror::None, Mirror::Horizontal, Mirror::Vertical]
     }
 }
 
