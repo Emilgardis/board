@@ -563,6 +563,7 @@ impl Board {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[must_use]
 pub struct Transformation {
     pub rotation: Rotation,
     pub mirror: Mirror,
@@ -582,7 +583,7 @@ impl Transformation {
         self.mirror = match (self.mirror, transform.mirror) {
             (Mirror::Horizontal, Mirror::Vertical) | (Mirror::Vertical, Mirror::Horizontal) => {
                 self.rotate(Rotation::OneEighty);
-                self.mirror
+                Mirror::None
             }
             (Mirror::None, m) | (m, Mirror::None) => m,
             (Mirror::Horizontal, Mirror::Horizontal) | (Mirror::Vertical, Mirror::Vertical) => {
@@ -596,6 +597,9 @@ impl Transformation {
 
     pub const fn apply(&self, point: Point) -> Point {
         self.mirror.apply(self.rotation.apply(point))
+    }
+    pub fn apply_f32(&self, point: (f32, f32)) -> (f32, f32) {
+        self.mirror.apply_f32(self.rotation.apply_f32(point))
     }
     pub const fn types() -> [Transformation; 12] {
         use self::{Mirror::*, Rotation::*};
@@ -701,6 +705,22 @@ impl Rotation {
         }
     }
 
+    /// Assumes a center point of 0,0
+    fn apply_f32(&self, point: (f32, f32)) -> (f32, f32) {
+        let (x, y) = point;
+        // trig tells us that the rotation of a point (x, y) around the origin (0, 0) is (x * cos(θ) - y * sin(θ), x * sin(θ) + y * cos(θ))
+
+        // lets use radians
+        let rad = match self {
+            Rotation::None => 0.0f32,
+            Rotation::Ninety => 90.0f32.to_radians(),
+            Rotation::OneEighty => 180.0f32.to_radians(),
+            Rotation::TwoSeventy => 270.0f32.to_radians(),
+        };
+        let (sin, cos) = rad.sin_cos();
+        (x * cos - y * sin, x * sin + y * cos)
+    }
+
     pub const fn rotations() -> &'static [Rotation] {
         &[
             Rotation::None,
@@ -743,6 +763,16 @@ impl Mirror {
 
     pub const fn mirrors() -> &'static [Mirror] {
         &[Mirror::None, Mirror::Horizontal, Mirror::Vertical]
+    }
+
+    /// Assumes a center point of 0,0
+    fn apply_f32(&self, point: (f32, f32)) -> (f32, f32) {
+        let (x, y) = point;
+        match self {
+            Mirror::None => (x, y),
+            Mirror::Horizontal => (-x, y),
+            Mirror::Vertical => (x, -y),
+        }
     }
 }
 
