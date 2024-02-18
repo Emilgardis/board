@@ -27,12 +27,12 @@ fn main() -> Result<(), color_eyre::Report> {
     tracing::info!("File: {:?}", path);
     let graph = open_file_path(path).wrap_err_with(|| format!("while parsing file {:?}", path))?;
 
-    eprintln!("{:?}", graph);
     //let mut file = OpenOptions::new().write(true).create(true).open(format!("{}.dot",path.file_stem().unwrap().to_str().unwrap())).expect("Couldn't create .dot file");
     //write!(file, "{:?}", graph).chain_err(|| "while writing to file");
     if matches.is_present("no-interactive") {
         return Ok(());
     }
+    eprintln!("{:?}", graph);
     let mut rl = rustyline::Editor::<()>::new()?;
     loop {
         let read = rl.readline(">> ");

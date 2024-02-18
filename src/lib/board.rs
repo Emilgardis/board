@@ -87,7 +87,8 @@ pub struct Board {
     index: usize,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum VariantType {
     /// Is a variant which may be a transformation also.
     Variant,
@@ -113,12 +114,11 @@ impl Board {
         MoveIndex::new_node(self.graph.add_node(marker))
     }
 
-    #[tracing::instrument(skip(self))]
     pub fn insert_move(&mut self, parent: MoveIndex, marker: BoardMarker) -> MoveIndex {
-        tracing::trace!(
-            index_in_file = format!("0x{:X}", marker.index_in_file.unwrap_or_default()),
-            "inserting move to graph"
-        );
+        // tracing::trace!(
+        //     index_in_file = format!("0x{:X}", marker.index_in_file.unwrap_or_default()),
+        //     "inserting move to graph"
+        // );
         MoveIndex::new(self.graph.add_child(parent.node_index, 255, marker))
     }
 
@@ -140,9 +140,8 @@ impl Board {
         }
         idx
     }
-    #[tracing::instrument(skip(self))]
     pub fn add_move_to_move_list(&mut self, index: MoveIndex) {
-        tracing::trace!(move_list = ?self.move_list, "adding move to move list");
+        // tracing::trace!(move_list = ?self.move_list, "adding move to move list");
         self.move_list.push(index);
         self.index = self.index.checked_add(1).unwrap();
     }
@@ -175,7 +174,7 @@ impl Board {
     }
 
     #[must_use]
-    #[tracing::instrument(skip(self))]
+    #[inline]
     pub fn get_parent_strong(&self, child: &MoveIndex) -> Option<MoveIndex> {
         let mut parents = self.graph.parents(child.node_index);
         if let Some(mut parent) = parents.walk_next(&self.graph) {
@@ -562,7 +561,8 @@ impl Board {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[must_use]
 pub struct Transformation {
     pub rotation: Rotation,
@@ -580,9 +580,10 @@ impl Transformation {
     }
 
     pub fn transform(mut self, transform: Transformation) -> Self {
+        self.rotate(transform.rotation);
         self.mirror = match (self.mirror, transform.mirror) {
             (Mirror::Horizontal, Mirror::Vertical) | (Mirror::Vertical, Mirror::Horizontal) => {
-                self.rotate(Rotation::OneEighty);
+                self.rotate(Rotation::Deg180);
                 Mirror::None
             }
             (Mirror::None, m) | (m, Mirror::None) => m,
@@ -591,17 +592,35 @@ impl Transformation {
             }
         };
 
-        self.rotate(transform.rotation);
         self
     }
 
-    pub const fn apply(&self, point: Point) -> Point {
+    pub fn apply(&self, point: Point) -> Point {
         self.mirror.apply(self.rotation.apply(point))
+    }
+
+    pub fn inverse_apply(mut self, mut point: Point) -> Point {
+        self.rotation = match self.rotation {
+            Rotation::None => Rotation::None,
+            Rotation::Deg90 => Rotation::Deg270,
+            Rotation::Deg180 => Rotation::Deg180,
+            Rotation::Deg270 => Rotation::Deg90,
+        };
+        self.rotation.apply(self.mirror.apply(point))
     }
     pub fn apply_f32(&self, point: (f32, f32)) -> (f32, f32) {
         self.mirror.apply_f32(self.rotation.apply_f32(point))
     }
-    pub const fn types() -> [Transformation; 12] {
+    pub fn inverse_apply_f32(&self, point: (f32, f32)) -> (f32, f32) {
+        match self.rotation {
+            Rotation::None => Rotation::None,
+            Rotation::Deg90 => Rotation::Deg270,
+            Rotation::Deg180 => Rotation::Deg180,
+            Rotation::Deg270 => Rotation::Deg90,
+        }
+        .apply_f32(self.mirror.apply_f32(point))
+    }
+    pub const fn types() -> [Transformation; 8] {
         use self::{Mirror::*, Rotation::*};
         [
             Transformation {
@@ -617,105 +636,80 @@ impl Transformation {
                 mirror: Vertical,
             },
             Transformation {
-                rotation: Ninety,
+                rotation: Deg90,
                 mirror: Mirror::None,
             },
             Transformation {
-                rotation: Ninety,
+                rotation: Deg90,
                 mirror: Horizontal,
             },
             Transformation {
-                rotation: Ninety,
+                rotation: Deg90,
                 mirror: Vertical,
             },
             Transformation {
-                rotation: OneEighty,
+                rotation: Deg180,
                 mirror: Mirror::None,
             },
+            // Transformation {
+            //     rotation: Deg180,
+            //     mirror: Horizontal,
+            // },
+            // Transformation {
+            //     rotation: Deg180,
+            //     mirror: Vertical,
+            // },
             Transformation {
-                rotation: OneEighty,
-                mirror: Horizontal,
-            },
-            Transformation {
-                rotation: OneEighty,
-                mirror: Vertical,
-            },
-            Transformation {
-                rotation: TwoSeventy,
+                rotation: Deg270,
                 mirror: Mirror::None,
             },
-            Transformation {
-                rotation: TwoSeventy,
-                mirror: Horizontal,
-            },
-            Transformation {
-                rotation: TwoSeventy,
-                mirror: Vertical,
-            },
+            // Transformation {
+            //     rotation: Deg270,
+            //     mirror: Horizontal,
+            // },
+            // Transformation {
+            //     rotation: Deg270,
+            //     mirror: Vertical,
+            // },
         ]
     }
 }
 
-#[test]
-fn unique_rotations() {
-    let variants = Transformation::types();
-    let moves = vec![
-        Point::new(0, 0),
-        Point::new(8, 7),
-        Point::new(0, 14),
-        Point::new(14, 0),
-        Point::new(14, 3),
-        Point::new(14, 14),
-    ];
-
-    for variant in variants.iter() {
-        for other in variants.iter().filter(|v| v != &variant) {
-            assert_ne!(
-                moves
-                    .clone()
-                    .into_iter()
-                    .map(|p| variant.apply(p))
-                    .collect::<Vec<_>>(),
-                moves
-                    .clone()
-                    .into_iter()
-                    .map(|p| other.apply(p))
-                    .collect::<Vec<_>>()
-            );
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Rotation {
     None,
-    Ninety,
-    OneEighty,
-    TwoSeventy,
+    Deg90,
+    Deg180,
+    Deg270,
 }
 
 impl Rotation {
-    pub const fn apply(&self, p: Point) -> Point {
-        // Assumes grid of 15x15
-        match self {
-            Rotation::None => p,
-            Rotation::Ninety => Point::new(p.y, 14 - p.x),
-            Rotation::OneEighty => Point::new(14 - p.x, 14 - p.y),
-            Rotation::TwoSeventy => Point::new(14 - p.y, p.x),
-        }
+    pub fn apply(&self, p: Point) -> Point {
+        let (x, y) = (p.x as f32 - 7.0, p.y as f32 - 7.0);
+        let (x, y) = self.apply_f32((x, y));
+        Point::new((x + 7.0).round() as u32, (y + 7.0).round() as u32)
+        // // Assumes grid of 15x15
+        // match self {
+        //     Rotation::None => p,
+        //     Rotation::Deg90 => Point::new(14 - p.y, p.x),
+        //     Rotation::Deg180 => Point::new(14 - p.x, 14 - p.y),
+        //     Rotation::Deg270 => Point::new(p.y, 14 - p.x),
+        // }
     }
 
     /// Assumes a center point of 0,0
     fn apply_f32(&self, point: (f32, f32)) -> (f32, f32) {
         let (x, y) = point;
-        // trig tells us that the rotation of a point (x, y) around the origin (0, 0) is (x * cos(θ) - y * sin(θ), x * sin(θ) + y * cos(θ))
-
+        // trig tells us that the rotation (ccw) of a point (x, y) around the origin (0, 0) is
+        // x′​ =  x cos(θ) - y sin(θ)
+        // y' = x sin(θ) + y cos(θ)​
         // lets use radians
         let rad = match self {
             Rotation::None => 0.0f32,
-            Rotation::Ninety => 90.0f32.to_radians(),
-            Rotation::OneEighty => 180.0f32.to_radians(),
-            Rotation::TwoSeventy => 270.0f32.to_radians(),
+            Rotation::Deg90 => 90.0f32.to_radians(),
+            Rotation::Deg180 => 180.0f32.to_radians(),
+            Rotation::Deg270 => 270.0f32.to_radians(),
         };
         let (sin, cos) = rad.sin_cos();
         (x * cos - y * sin, x * sin + y * cos)
@@ -724,27 +718,43 @@ impl Rotation {
     pub const fn rotations() -> &'static [Rotation] {
         &[
             Rotation::None,
-            Rotation::Ninety,
-            Rotation::OneEighty,
-            Rotation::TwoSeventy,
+            Rotation::Deg90,
+            Rotation::Deg180,
+            Rotation::Deg270,
         ]
     }
+    #[tracing::instrument]
     pub fn rotate(&mut self, rotation: Rotation) {
-        *self = *Rotation::rotations()
-            .iter()
-            .cycle()
-            .skip_while(|r| *r != &*self)
-            .nth(match rotation {
-                Rotation::None => return,
-                Rotation::Ninety => 1,
-                Rotation::OneEighty => 2,
-                Rotation::TwoSeventy => 3,
-            })
-            .unwrap();
+        const ROTATIONS: &[Rotation] = &[
+            Rotation::None,
+            Rotation::Deg90,
+            Rotation::Deg180,
+            Rotation::Deg270,
+            Rotation::None,
+            Rotation::Deg90,
+            Rotation::Deg180,
+            Rotation::Deg270,
+        ];
+
+        let s = match rotation {
+            Rotation::None => 0,
+            Rotation::Deg90 => 1,
+            Rotation::Deg180 => 2,
+            Rotation::Deg270 => 3,
+        };
+        let i = match self {
+            Rotation::None => 0,
+            Rotation::Deg90 => 1,
+            Rotation::Deg180 => 2,
+            Rotation::Deg270 => 3,
+        };
+        *self = ROTATIONS[i + s];
+        tracing::debug!("rotated to: {:?}", self);
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Mirror {
     None,
     Horizontal,
@@ -752,17 +762,20 @@ pub enum Mirror {
 }
 
 impl Mirror {
-    pub const fn apply(&self, p: Point) -> Point {
-        // Assumes grid of 15x15
-        match self {
-            Mirror::None => p,
-            Mirror::Horizontal => Point::new(14 - p.x, p.y),
-            Mirror::Vertical => Point::new(p.x, 14 - p.y),
-        }
-    }
-
     pub const fn mirrors() -> &'static [Mirror] {
         &[Mirror::None, Mirror::Horizontal, Mirror::Vertical]
+    }
+
+    pub fn apply(&self, p: Point) -> Point {
+        let (x, y) = (p.x as f32 - 7.0, p.y as f32 - 7.0);
+        let (x, y) = self.apply_f32((x, y));
+        Point::new((x + 7.0).round() as u32, (y + 7.0).round() as u32)
+        // // Assumes grid of 15x15
+        // match self {
+        //     Mirror::None => p,
+        //     Mirror::Horizontal => Point::new(14 - p.x, p.y),
+        //     Mirror::Vertical => Point::new(p.x, 14 - p.y),
+        // }
     }
 
     /// Assumes a center point of 0,0
@@ -772,6 +785,86 @@ impl Mirror {
             Mirror::None => (x, y),
             Mirror::Horizontal => (-x, y),
             Mirror::Vertical => (x, -y),
+        }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::p;
+
+    use super::*;
+
+    macro_rules! t {
+        (@m |) => {Mirror::Vertical};
+        (@m -) => {Mirror::Horizontal};
+        (@m *) => {Mirror::None};
+        (@rot 0) => {Rotation::None};
+        (@rot 000) => {Rotation::None};
+        (@rot 90) => {Rotation::Deg90};
+        (@rot 090) => {Rotation::Deg90};
+        (@rot 180) => {Rotation::Deg180};
+        (@rot 270) => {Rotation::Deg270};
+        ($r:tt, $m:tt) => {
+            Transformation {
+                rotation: t!(@rot $r),
+                mirror: t!(@m $m),
+            }
+        };
+    }
+
+    #[test]
+    #[allow(clippy::zero_prefixed_literal)]
+    fn transforms_are_correct() {
+        fn points() -> Vec<Point> {
+            p![[L, 12], [L, 11], [K, 12], [F, 4]]
+        }
+
+        fn apply(t: Transformation) -> Vec<Point> {
+            points().iter().map(|p| t.apply(*p)).collect()
+        }
+
+        assert_eq!(apply(Transformation::identity()), points());
+        assert_eq!(apply(t!(000, *)), points());
+        assert_eq!(apply(t!(090, *)), p![[L, 04], [K, 04], [L, 05], [D, 10]]);
+        assert_eq!(apply(t!(180, *)), p![[D, 04], [D, 05], [E, 04], [J, 12]]);
+        assert_eq!(apply(t!(270, *)), p![[D, 12], [E, 12], [D, 11], [L, 6]]);
+        assert_eq!(apply(t!(000, -)), p![[D, 12], [D, 11], [E, 12], [J, 04]]);
+        assert_eq!(apply(t!(090, -)), p![[D, 04], [E, 04], [D, 05], [L, 10]]);
+        assert_eq!(apply(t!(180, -)), p![[L, 04], [L, 05], [K, 04], [F, 12]]);
+        assert_eq!(apply(t!(270, -)), p![[L, 12], [K, 12], [L, 11], [D, 6]]);
+        assert_eq!(apply(t!(000, |)), p![[L, 04], [L, 05], [K, 04], [F, 12]]);
+        assert_eq!(apply(t!(090, |)), p![[L, 12], [K, 12], [L, 11], [D, 6]]);
+        assert_eq!(apply(t!(180, |)), p![[D, 12], [D, 11], [E, 12], [J, 04]]);
+        assert_eq!(apply(t!(270, |)), p![[D, 04], [E, 04], [D, 05], [L, 10]]);
+    }
+    #[test]
+    fn unique_rotations() {
+        let variants = Transformation::types();
+        let moves = vec![
+            Point::new(0, 0),
+            Point::new(8, 7),
+            Point::new(0, 14),
+            Point::new(14, 0),
+            Point::new(14, 3),
+            Point::new(14, 14),
+        ];
+
+        for (i, variant) in variants.iter().enumerate() {
+            for (e, other) in variants.iter().enumerate().filter(|(_, v)| v != &variant) {
+                assert_ne!(
+                    moves
+                        .clone()
+                        .into_iter()
+                        .map(|p| variant.apply(p))
+                        .collect::<Vec<_>>(),
+                    moves
+                        .clone()
+                        .into_iter()
+                        .map(|p| other.apply(p))
+                        .collect::<Vec<_>>(),
+                    "{i} = {e}"
+                );
+            }
         }
     }
 }

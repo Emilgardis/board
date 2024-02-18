@@ -92,7 +92,7 @@ impl eframe::App for RenjuApp {
                     if ui.button("rotate").clicked() {
                         board
                             .transform_mut()
-                            .rotate(renju::board::Rotation::TwoSeventy);
+                            .rotate(renju::board::Rotation::Deg90);
                     }
                     if ui.button("Mirror -").clicked() {
                         board.transform_mut().mirror = renju::board::Mirror::Horizontal;

@@ -11,6 +11,13 @@ use std::ops::Deref;
 
 #[macro_export]
 macro_rules! p {
+    [$([$($i:tt)*]),* $(,)?] => {
+        vec![
+            $(
+                p![$($i)*]
+            ),*
+        ]
+    };
     [$x:ident, $y:literal] => {
         Point::new((stringify!($x).chars().next().unwrap() as u8 - b'A') as u32, 15-$y)
     };

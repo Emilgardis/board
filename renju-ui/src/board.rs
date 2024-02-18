@@ -163,31 +163,6 @@ impl BoardRender {
         }
     }
 
-    /// Returns the position of the center of the point. Not transformed and transformed
-    fn pos_at(&self, point: &renju::board_logic::Point) -> (Pos2, Pos2) {
-        let BoardRender {
-            rect,
-            incr,
-            x_offset,
-            y_offset,
-            transform,
-            ..
-        } = *self;
-        (
-            Pos2::new(
-                x_offset + rect.left() + incr * point.x as f32,
-                y_offset + rect.top() + incr * point.y as f32,
-            ),
-            {
-                let point = transform.apply(*point);
-                Pos2::new(
-                    x_offset + rect.left() + incr * point.x as f32,
-                    y_offset + rect.top() + incr * point.y as f32,
-                )
-            },
-        )
-    }
-
     fn marks(&self, painter: &Painter, board: &UIBoard) {
         let BoardRender { lines, sq_size, .. } = *self;
 
@@ -213,12 +188,39 @@ impl BoardRender {
         }
     }
 
+    /// Returns the position of the center of the point. Not transformed and transformed
+    fn pos_at(&self, point: &renju::board_logic::Point) -> (Pos2, Pos2) {
+        let BoardRender {
+            rect,
+            incr,
+            x_offset,
+            y_offset,
+            transform,
+            ..
+        } = *self;
+        (
+            Pos2::new(
+                x_offset + rect.left() + incr * point.x as f32,
+                y_offset + rect.top() + incr * point.y as f32,
+            ),
+            {
+                let point = transform.apply(*point);
+                Pos2::new(
+                    x_offset + rect.left() + incr * point.x as f32,
+                    y_offset + rect.top() + incr * point.y as f32,
+                )
+            },
+        )
+    }
+
     fn center(&self) -> Pos2 {
         let center_x = self.rect.left() + self.x_offset + self.incr * ((self.lines / 2) as f32);
         let center_y = self.rect.top() + self.y_offset + self.incr * ((self.lines / 2) as f32);
         Pos2::new(center_x, center_y)
     }
-    fn closest(&self, pos: &Pos2) -> Option<Point> {
+
+    /// Get the closest untransformed point to this position.
+    fn closest(&self, pos: &Pos2, ui: &Ui) -> Option<Point> {
         let BoardRender {
             rect,
             incr,
@@ -228,16 +230,36 @@ impl BoardRender {
             ..
         } = *self;
 
-        let x = pos.x - x_offset - rect.left() + incr / 2.0;
-        let y = pos.y - y_offset - rect.top() + incr / 2.0;
-        if let (x_div @ 0.., y_div @ 0..) = (x.div_euclid(incr) as i32, y.div_euclid(incr) as i32) {
+        let Pos2 {
+            x: center_x,
+            y: center_y,
+        } = self.center();
+
+        // transform to 0,0 space
+        let x = pos.x - center_x;
+        let y = pos.y - center_y;
+
+        //let (x, y) = self.transform.apply_f32((x, y));
+        // Transform the point to the board pos
+        // back to screen space
+        let (x, y) = (x + center_x, y + center_y);
+
+        let pos = Pos2::new(x, y);
+
+        let x = x - x_offset - rect.left() + incr / 2.0;
+        let y = y - y_offset - rect.top() + incr / 2.0;
+
+        let (x_div, y_div) = (x.div_euclid(incr) as i32, y.div_euclid(incr) as i32);
+
+        tracing::debug!(?x_div, ?y_div, "integer point");
+        if let (x_div @ 0.., y_div @ 0..) = (x_div, y_div) {
             if x_div >= lines as i32 || y_div >= lines as i32 {
                 return None;
             }
             let point = Point::new(x_div as u32, y_div as u32);
-            let (real_pos, _) = self.pos_at(&point);
-            if real_pos.distance(*pos) <= (incr / 2.4) {
-                Some(self.transform.apply(point))
+            let (real_pos, trans_pos) = self.pos_at(&point);
+            if real_pos.distance(pos) <= (incr / 2.4) {
+                Some(self.transform.inverse_apply(point))
             } else {
                 None
             }
@@ -372,7 +394,7 @@ impl UIBoard {
                         if response.clicked() {
                             *just_clicked = true;
                             if let Some(pos) = response.interact_pointer_pos() {
-                                let closest = render.closest(&pos);
+                                let closest = render.closest(&pos, ui);
                                 if let Some(point) = closest {
                                     if self
                                         .board
@@ -437,7 +459,7 @@ impl UIBoard {
                                 }
                             }
                         } else if let Some(pos) = response.hover_pos() {
-                            if let Some(closest) = render.closest(&pos) {
+                            if let Some(closest) = render.closest(&pos, ui) {
                                 if self
                                     .board
                                     .get_point(closest)
@@ -516,8 +538,13 @@ impl UIBoard {
             .graph
             .get_variants_and_transformations(current_move)
             .unwrap();
-        let children = self.graph.get_children(&current_move).into_iter().filter_map(|mi| self.graph.get_move(mi));
-        self.variants_and_transformations.retain(|(p, ..)| !children.clone().any(|other| p.point == other.point));
+        let children = self
+            .graph
+            .get_children(&current_move)
+            .into_iter()
+            .filter_map(|mi| self.graph.get_move(mi));
+        self.variants_and_transformations
+            .retain(|(p, .., typ)| !children.clone().any(|other| p.point == other.point && typ == &VariantType::Transformation));
 
         // for (marker, _, variant, _) in &self.variants_and_transformations {
         //     if let Some(marker) = self.board.get_point(marker.point) {

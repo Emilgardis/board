@@ -130,8 +130,10 @@ pub fn open_file_path(path: &Path) -> Result<Board, color_eyre::Report> {
     let _display = path.display();
     let filetype = FileType::new(path);
     let file: File = File::open(path)?;
+    // XXX: This gives a massive speedup.
+    let buffered = std::io::BufReader::new(file);
     tracing::trace!(?path, ?filetype, "file opened");
-    read_bytes(file, filetype.as_ref(), &mut board)?;
+    read_bytes(buffered, filetype.as_ref(), &mut board)?;
     Ok(board)
 }
 

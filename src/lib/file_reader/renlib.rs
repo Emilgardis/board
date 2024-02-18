@@ -144,8 +144,14 @@ pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyr
     board.move_to_root();
     let mut cur_move = board.current_move();
     tracing::debug!("starting parse of file");
+    let mut i = 0;
+    let ten_percent = moves.len() / 10;
     for mut marker in moves {
-        tracing::trace!(marker = format!("{:#?}", marker), ?cur_move, "processing");
+        if i % ten_percent == 0 {
+            tracing::trace!(?i, "processing");
+        }
+        i += 1;
+        //tracing::trace!(marker = format!("{:#?}", marker), ?cur_move, "processing");
         if marker.command.is_move() {
             let last_move = board
                 .move_list()
