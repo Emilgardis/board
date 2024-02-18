@@ -1,10 +1,13 @@
-use crate::board_logic::{BoardArr, BoardMarker, Point, Stone};
+pub use board_logic::{BoardArr, BoardMarker, Point, Stone};
 use crate::errors::ParseError;
 use daggy;
 use daggy::Walker;
-use std::{fmt};
+use std::fmt;
 
 use std::str::FromStr;
+
+pub mod evaluator;
+pub mod board_logic;
 
 pub type BigU = usize;
 pub type NodeIndex = daggy::NodeIndex<BigU>;
@@ -894,7 +897,7 @@ impl fmt::Debug for Board {
 
 #[test]
 fn does_it_work() {
-    use crate::board_logic::{BoardMarker, Point, Stone};
+    use super::*;
     let mut graph = Board::new();
     let a = graph.new_root(BoardMarker::new(Point::new(7, 7), Stone::Black));
     let b_1 = BoardMarker::new(Point::new(8, 7), Stone::White);

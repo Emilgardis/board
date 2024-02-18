@@ -5,8 +5,7 @@
 use std::fs::File;
 use std::path::Path;
 
-use crate::board::{Board, MoveIndex};
-use crate::board_logic::{BoardMarker, Point, Stone};
+use crate::board::{Board, BoardMarker, MoveIndex, Point, Stone};
 use crate::errors::ParseError;
 
 pub mod renlib;
@@ -122,16 +121,17 @@ pub enum FileErr {
     ParseError,
 }
 
-#[tracing::instrument]
+#[tracing::instrument(fields(filetype))]
 pub fn open_file_path(path: &Path) -> Result<Board, color_eyre::Report> {
     let mut board = Board::new();
 
     let _display = path.display();
     let filetype = FileType::new(path);
+    tracing::Span::current().record("filetype", tracing::field::debug(&filetype));
     let file: File = File::open(path)?;
     // XXX: This gives a massive speedup.
     let buffered = std::io::BufReader::new(file);
-    tracing::trace!(?path, ?filetype, "file opened");
+    tracing::trace!("file opened");
     read_bytes(buffered, filetype.as_ref(), &mut board)?;
     Ok(board)
 }

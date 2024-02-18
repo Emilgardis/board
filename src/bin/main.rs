@@ -4,8 +4,7 @@ use renju::errors::ParseError;
 use std::path::Path;
 
 use color_eyre::eyre::WrapErr;
-use renju::board::{Board, MoveIndex};
-use renju::board_logic::{self, BoardArr, Point};
+use renju::board::{Board, BoardArr, BoardMarker, MoveIndex, Point};
 use renju::file_reader::open_file_path;
 
 fn main() -> Result<(), color_eyre::Report> {
@@ -53,7 +52,7 @@ fn main() -> Result<(), color_eyre::Report> {
                 let (board, moves) = traverse(&graph, node)?;
                 eprintln!("{}", board);
                 if let Some(last_point) = moves.last() {
-                    if let Some(board_logic::BoardMarker {
+                    if let Some(BoardMarker {
                         multiline_comment,
                         oneline_comment,
                         ..

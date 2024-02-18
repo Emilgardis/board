@@ -1,7 +1,7 @@
 //! Functions for handling renlib files.
 use bitflags::bitflags;
 
-use crate::{board_logic::Stone, errors::ParseError};
+use crate::{board::Stone, errors::ParseError};
 use std::io::Read;
 
 use crate::board::Board;
@@ -132,6 +132,7 @@ impl Command {
     }
 }
 
+#[tracing::instrument(skip(file, board))]
 pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyre::Report> {
     let moves = match read_header(&mut file)? {
         (v @ (Version::V30 | Version::V34), i) => parser::parse_v3x(file, v, i),
@@ -146,8 +147,10 @@ pub fn parse_lib(mut file: impl Read, board: &mut Board) -> Result<(), color_eyr
     tracing::debug!("starting parse of file");
     let ten_percent = moves.len() / 10;
     for (i, mut marker) in moves.into_iter().enumerate() {
+        let span = tracing::debug_span!("processing", ?i);
+        let _enter = span.enter();
         if i % ten_percent == 0 {
-            tracing::trace!(?i, "processing");
+            tracing::debug!("processing");
         }
         //tracing::trace!(marker = format!("{:#?}", marker), ?cur_move, "processing");
         if marker.command.is_move() {

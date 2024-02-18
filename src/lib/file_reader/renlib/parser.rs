@@ -1,4 +1,4 @@
-use crate::board_logic::{BoardMarker, Point, Stone};
+use crate::board::{BoardMarker, Point, Stone};
 
 use super::Version;
 pub use super::{Command, CommandVariant};
@@ -6,11 +6,12 @@ pub use super::{Command, CommandVariant};
 #[cfg(test)]
 mod tests {
     use test_log::test;
-
-    use crate::{board_logic::Point, p};
+    use std::io::BufRead;
+    use crate::p;
+    use super::*;
 
     use super::{
-        super::{BufRead, Command, CommandVariant, Stone, Version},
+        super::{Command, CommandVariant, Stone, Version},
         *,
     };
 
