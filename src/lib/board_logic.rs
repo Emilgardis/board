@@ -323,7 +323,7 @@ pub struct BoardArr(Vec<BoardMarker>, u32);
 impl BoardArr {
     pub fn new(size: u32) -> Self {
         let mut b = Self(vec![BoardMarker::null(); (size * size) as usize], size);
-        for idx in 0..(size * size) as u32 {
+        for idx in 0..(size * size) {
             b.get_mut(idx as usize).unwrap().point = Point::from_1d(idx, size);
         }
         b

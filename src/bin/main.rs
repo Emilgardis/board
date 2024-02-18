@@ -53,9 +53,9 @@ fn main() -> Result<(), color_eyre::Report> {
                 let (board, moves) = traverse(&graph, node)?;
                 eprintln!("{}", board);
                 if let Some(last_point) = moves.last() {
-                    if let Some(&board_logic::BoardMarker {
-                        ref multiline_comment,
-                        ref oneline_comment,
+                    if let Some(board_logic::BoardMarker {
+                        multiline_comment,
+                        oneline_comment,
                         ..
                     }) = board.get_point(*last_point)
                     {

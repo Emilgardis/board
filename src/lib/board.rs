@@ -2,7 +2,7 @@ use crate::board_logic::{BoardArr, BoardMarker, Point, Stone};
 use crate::errors::ParseError;
 use daggy;
 use daggy::Walker;
-use std::{collections::BTreeSet, fmt};
+use std::{fmt};
 
 use std::str::FromStr;
 
@@ -365,7 +365,7 @@ impl Board {
                 }
 
                 let mut diff = None;
-                let mut walked = walked
+                let walked = walked
                     .iter()
                     .map(|(p, c, i)| (transform.apply(*p), c, i))
                     .collect::<Vec<_>>();
@@ -449,7 +449,7 @@ impl Board {
             result
         }
 
-        let mut moves = self
+        let moves = self
             .move_list()
             .iter()
             .filter_map(|mi| Some((self.get_move(*mi)?, mi)))
@@ -473,7 +473,7 @@ impl Board {
         &self,
         index: &MoveIndex,
         point: &Point,
-        color: &Stone,
+        _color: &Stone,
     ) -> Option<(&BoardMarker, MoveIndex)> {
         // this function does something.
         // Get the first branch below this node
@@ -481,7 +481,7 @@ impl Board {
             if let Some(
                 marker @ BoardMarker {
                     point: point2,
-                    color: color2,
+                    color: _color2,
                     command,
                     ..
                 },
@@ -522,8 +522,7 @@ impl Board {
     #[must_use]
     pub fn get_root(&self) -> MoveIndex {
         *self
-            .move_list
-            .get(0)
+            .move_list.first()
             .expect("move_list should never be empty")
     }
 
@@ -599,7 +598,7 @@ impl Transformation {
         self.mirror.apply(self.rotation.apply(point))
     }
 
-    pub fn inverse_apply(mut self, mut point: Point) -> Point {
+    pub fn inverse_apply(mut self, point: Point) -> Point {
         self.rotation = match self.rotation {
             Rotation::None => Rotation::None,
             Rotation::Deg90 => Rotation::Deg270,

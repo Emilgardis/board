@@ -2,8 +2,7 @@ use egui::{style::Margin, *};
 use renju::{
     board::{Board, MoveIndex, Transformation, VariantType},
     board_logic::{BoardArr, BoardMarker, Point, Stone},
-    evaluator,
-    file_reader::renlib::{CommandError, CommandVariant},
+    file_reader::renlib::{CommandVariant},
     p,
 };
 
@@ -136,12 +135,12 @@ impl BoardRender {
             incr,
             x_offset,
             y_offset,
-            sq_size,
+            
             ..
         } = *self;
 
-        let x_range = (x_offset + rect.left());
-        let y_range = (y_offset + rect.top());
+        let x_range = x_offset + rect.left();
+        let y_range = y_offset + rect.top();
         for line in 0..lines {
             painter.text(
                 Pos2::new(
@@ -164,11 +163,11 @@ impl BoardRender {
     }
 
     fn marks(&self, painter: &Painter, board: &UIBoard) {
-        let BoardRender { lines, sq_size, .. } = *self;
+        let BoardRender {   .. } = *self;
 
         let children = board.graph.get_children(&board.graph.current_move());
         // find other trees with same outcome if placed
-        for (m, mi, transform, variant_type) in &board.variants_and_transformations {
+        for (m, mi, _transform, variant_type) in &board.variants_and_transformations {
             if children.iter().any(|m| m == mi) {
                 continue;
             }
@@ -220,7 +219,7 @@ impl BoardRender {
     }
 
     /// Get the closest untransformed point to this position.
-    fn closest(&self, pos: &Pos2, ui: &Ui) -> Option<Point> {
+    fn closest(&self, pos: &Pos2, _ui: &Ui) -> Option<Point> {
         let BoardRender {
             rect,
             incr,
@@ -257,7 +256,7 @@ impl BoardRender {
                 return None;
             }
             let point = Point::new(x_div as u32, y_div as u32);
-            let (real_pos, trans_pos) = self.pos_at(&point);
+            let (real_pos, _trans_pos) = self.pos_at(&point);
             if real_pos.distance(pos) <= (incr / 2.4) {
                 Some(self.transform.inverse_apply(point))
             } else {
@@ -326,7 +325,7 @@ impl UIBoard {
             match &input.keys_down {
                 keys if input.modifiers.shift => match keys {
                     _ if input.key_pressed(Key::ArrowRight) => {
-                        let (walked, children) =
+                        let (walked, _children) =
                             self.graph.up_to_branch(&self.graph().current_move());
                         if let Some(last) = walked.last() {
                             self.change_current_move(last);
@@ -438,10 +437,10 @@ impl UIBoard {
                                                     tracing::info!("entering normal move which may be a child");
                                                     let existed = self.add_marker(marker);
                                                     if !existed {
-                                                        if let Some((_variant, index, _transform, variant_type)) = self
+                                                        if let Some((_variant, index, _transform, _variant_type)) = self
                                                         .variants_and_transformations
                                                         .iter()
-                                                        .find(|(m, _, _transform, variant_type)| m.point == point)
+                                                        .find(|(m, _, _transform, _variant_type)| m.point == point)
                                                         {
                                                             if let Err(e) = self.graph.add_edge(
                                                                 index,

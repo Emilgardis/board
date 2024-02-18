@@ -3,7 +3,6 @@
 //! Currently only supports _.pos_ and _.lib_ (`RenLib`) files of version 3.04+.
 
 use std::fs::File;
-use std::io::prelude::*;
 use std::path::Path;
 
 use crate::board::{Board, MoveIndex};

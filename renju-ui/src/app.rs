@@ -1,8 +1,8 @@
-use std::sync::Arc;
 
-use egui::{Button, Label, RawInput, RichText, Style, TextEdit, Ui, Widget};
+
+use egui::{Button, TextEdit, Widget};
 use poll_promise::Promise;
-use renju::board_logic::BoardArr;
+
 
 use crate::board::UIBoard;
 
@@ -63,8 +63,8 @@ impl eframe::App for RenjuApp {
     #[tracing::instrument(skip(self, ctx, frame), fields(move_list = ?self.board.graph().move_list()))]
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         let Self {
-            label,
-            value,
+            label: _,
+            value: _,
             board,
             picker_promise,
             just_clicked,

@@ -1,24 +1,18 @@
 //! Convenience functions for usage
 
-use tracing_subscriber::{
-    fmt::{self, format::Writer, FmtContext, FormatEvent, FormatFields},
-    registry::LookupSpan,
-};
 
-use tracing_log::NormalizeEvent;
 
-use ansi_term::{Color, Style};
+
+
+
 use color_eyre::eyre::WrapErr;
-use fmt::{time::FormatTime, FormattedFields};
-use std::fmt::Write;
-use tracing::{
-    field::{Field, Visit},
-    Level, Subscriber,
-};
+
+
+
 
 /// Build a logger that does file and term logging.
 pub fn build_logger() -> Result<(), color_eyre::eyre::Error> {
-    use tracing_subscriber::prelude::__tracing_subscriber_field_MakeExt as _;
+    
 
     tracing_log::log_tracer::Builder::new()
         .init()
