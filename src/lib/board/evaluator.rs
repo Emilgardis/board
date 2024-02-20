@@ -220,100 +220,69 @@ impl BoardArr {
             }
         }
 
-        // check for threes
-        // A unbroken three is a three that can become a straight four.
-        // A three is .XXX.. or ..XXX.
-        // ..XXX.
-        // Then there's also broken threes
-        // .XX.X. or ..X.XX.
-        // These are all cases where a stone can be added to create a four.
-        // An important thing to note here is that when placing a black stone on the open point for a unbroken three
-        // or the break point for a broken three, if that would be a forbidden move, then it's not a three.
-        // So, a single point in renju for black can only be part of a single three, otherwise it's forbidden. This includes overline, which is not legal for black.
+        // check for open threes, threes which can become straight fours. To do this, we need to check a huge range, 9 stones to be exact.
         tracing::debug!("checking threes");
         for (dir, stone_line) in &lines {
             // first check for unbroken threes
-            for line in stone_line.windows(6) {
+            for line in stone_line.windows(9) {
                 match line {
-                    // .XX__.
-                    [(Empty, _), (Same, s1), (Same, s2), (Empty, s3), (Empty, s4), (Empty, _)] => {
+                    // valid threes
+                    // |.X_X...X
+                    // |.X._X....
+                    // Not threes
+                    // |.X_X..X.
+                    // |.X_X.X..
+
+                    // %.__XX.%
+
+
+
+                    // %.__XX..%
+                    [(left, _), (Empty, s1), (Empty, s2), (Empty, s3), (Same, s4), (Same, s5), (Empty, s6), (Empty, s7), (right, _)] =>
+                    {
+                        match (left, right) {
+                            (Same, _) | (_, Same) => continue,
+                            _ => {}
+                        }
                         if !forbidden.contains(s3) {
                             let cond = RenjuCondition::UnbrokenThree {
                                 direction: *dir,
-                                stones: [**s1, **s2, **s3],
+                                stones: [**s3, **s4, **s5],
                                 place: [**s3],
                             };
-                            threes.entry(*s3).or_insert_with(BTreeSet::new).insert(cond);
+                            threes.entry(s3).or_insert_with(BTreeSet::new).insert(cond);
                         }
-                        if !forbidden.contains(s4) {
-                            let cond = RenjuCondition::BrokenThree {
-                                direction: *dir,
-                                stones: [**s1, **s2, **s3, **s4],
-                                place: [**s4],
-                            };
-                            threes.entry(*s4).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-                    //.__XX.
-                    [(Empty, _), (Empty, s4), (Empty, s3), (Same, s2), (Same, s1), (Empty, _)] => {
-                        if !forbidden.contains(s3) {
-                            let cond = RenjuCondition::UnbrokenThree {
-                                direction: *dir,
-                                stones: [**s3, **s2, **s1],
-                                place: [**s3],
-                            };
-                            threes.entry(*s3).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                        if !forbidden.contains(s4) {
-                            let cond = RenjuCondition::BrokenThree {
-                                direction: *dir,
-                                stones: [**s4, **s3, **s2, **s1],
-                                place: [**s4],
-                            };
-                            threes.entry(*s4).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-                    // .X_X..
-                    [(Empty, _), (Same, s1), (Empty, s2), (Same, s3), (Empty, _), (Empty, _)] => {
-                        if forbidden.contains(s2) {
-                            continue;
-                        }
-                        let cond = RenjuCondition::UnbrokenThree {
-                            direction: *dir,
-                            stones: [**s1, **s2, **s3],
-                            place: [**s2],
-                        };
-                        threes.entry(s2).or_insert_with(BTreeSet::new).insert(cond);
-                    }
-                    // ..X_X.
-                    [(Empty, _), (Empty, _), (Same, s3), (Empty, s2), (Same, s1), (Empty, _)] => {
-                        if forbidden.contains(s2) {
-                            continue;
-                        }
-                        let cond = RenjuCondition::UnbrokenThree {
-                            direction: *dir,
-                            stones: [**s3, **s2, **s1],
-                            place: [**s2],
-                        };
-                        threes.entry(s2).or_insert_with(BTreeSet::new).insert(cond);
-                    }
-                    // .X._X. or .X_.X.
-                    [(Empty, _), (Same, s1), (Empty, s2), (Empty, s3), (Same, s4), (Empty, _)] => {
                         if !forbidden.contains(s2) {
                             let cond = RenjuCondition::BrokenThree {
                                 direction: *dir,
-                                stones: [**s1, **s2, **s3, **s4],
+                                stones: [**s2, **s3, **s4, **s5],
                                 place: [**s2],
                             };
-                            threes.entry(*s2).or_insert_with(BTreeSet::new).insert(cond);
+                            threes.entry(s2).or_insert_with(BTreeSet::new).insert(cond);
                         }
-                        if !forbidden.contains(s3) {
+                    }
+                    // %..XX__.%
+                    [(left, _), (Empty, s1), (Empty, s2), (Same, s3), (Same, s4), (Empty, s5), (Empty, s6), (Empty, s7), (right, _)] =>
+                    {
+                        match (left, right) {
+                            (Same, _) | (_, Same) => continue,
+                            _ => {}
+                        }
+                        if !forbidden.contains(s5) {
+                            let cond = RenjuCondition::UnbrokenThree {
+                                direction: *dir,
+                                stones: [**s3, **s4, **s5],
+                                place: [**s5],
+                            };
+                            threes.entry(s5).or_insert_with(BTreeSet::new).insert(cond);
+                        }
+                        if !forbidden.contains(s6) {
                             let cond = RenjuCondition::BrokenThree {
                                 direction: *dir,
-                                stones: [**s1, **s2, **s3, **s4],
-                                place: [**s3],
+                                stones: [**s3, **s4, **s5, **s6],
+                                place: [**s6],
                             };
-                            threes.entry(*s3).or_insert_with(BTreeSet::new).insert(cond);
+                            threes.entry(s6).or_insert_with(BTreeSet::new).insert(cond);
                         }
                     }
                     _ => {}
@@ -322,7 +291,7 @@ impl BoardArr {
         }
         for (k, v) in &threes {
             if stone.is_black() && v.len() > 1 {
-                forbidden.insert(**k);
+                forbidden.insert(***k);
             } else {
                 conditions.insert(v.first().unwrap().clone());
             }
@@ -496,7 +465,11 @@ impl BoardArr {
 
         for (k, v) in &fours {
             if stone.is_black() && v.len() > 1 {
-                forbidden.insert(***k);
+                if v.iter()
+                    .any(|c| matches!(c, RenjuCondition::StraightFour { .. }))
+                {
+                    forbidden.insert(***k);
+                }
             } else {
                 conditions.insert(v.first().unwrap().clone());
             }
