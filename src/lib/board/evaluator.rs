@@ -231,14 +231,12 @@ impl BoardArr {
                     {
                         match (left, right) {
                             (_, Same) => {
-                                tracing::debug!(?line, "got closed three");
                                 continue;
                             }
                             // X..xXX.%
                             (Same, Border | NotSame | Empty) => {
                                 // there is a very special case here, if x.._xx..x, then it's not a three, since that three does not given a open four
-                                if matches!(eh_case, Same) {
-                                    tracing::debug!(?line, "got impossible three");
+                                if stone.is_black() && matches!(eh_case, Same) {
                                     continue;
                                 }
                             }
@@ -267,14 +265,12 @@ impl BoardArr {
                     {
                         match (left, right) {
                             (Same, _) => {
-                                tracing::debug!(?line, "got closed three");
                                 continue;
                             }
                             // X..xXX.%
                             (Border | NotSame | Empty, Same) => {
                                 // there is a very special case here, if x..xx_..x, then it's not a three, since that three does not given a open four
-                                if matches!(eh_case, Same) {
-                                    tracing::debug!(?line, "got impossible three");
+                                if stone.is_black() && matches!(eh_case, Same) {
                                     continue;
                                 }
                             }
@@ -304,7 +300,6 @@ impl BoardArr {
                     {
                         match (left, right) {
                             (_, Same) => {
-                                tracing::debug!(?line, "got impossible broken three");
                                 continue;
                             }
                             (Same, Border | NotSame | Empty) => {}
@@ -334,7 +329,6 @@ impl BoardArr {
                     {
                         match (left, right) {
                             (Same, _) => {
-                                tracing::debug!(?line, "got impossible broken three");
                                 continue;
                             }
                             (Border | NotSame | Empty, Same) => {}
@@ -391,6 +385,10 @@ impl BoardArr {
             }
         }
 
+        if stone.is_white() {
+            assert!(forbidden.is_empty());
+        }
+
         let mut fours = BTreeMap::new();
 
         tracing::debug!("checking fours");
@@ -428,8 +426,8 @@ impl BoardArr {
                             fours.entry(s0).or_insert_with(BTreeSet::new).insert(cond);
                         }
                     }
-                    // %XXX_.
-                    // %XXX._
+                    // %XXX_.%
+                    // %XXX._%
                     [(left, _), (Same, s1), (Same, s2), (Same, s3), (Empty, s4), (Empty, s5), (right, _)]
                         if matches!(left, Empty | NotSame | Border) =>
                     {
@@ -523,46 +521,48 @@ impl BoardArr {
             }
         }
 
-        tracing::debug!("checking fives");
-        for (dir, stone_line) in &lines {
-            for line in stone_line.windows(5) {
-                match line {
-                    // XXXX_
-                    [(Same, s0), (Same, s1), (Same, s2), (Same, s3), (Empty, s4)] => {
-                        if !forbidden.contains(s0) {
-                            let cond = RenjuCondition::Five {
-                                direction: *dir,
-                                stones: [**s0, **s1, **s2, **s3, **s4],
-                                place: [**s4],
-                            };
-                            conditions.insert(cond);
-                        }
-                    }
-                    // _XXXX
-                    [(Empty, s0), (Same, s1), (Same, s2), (Same, s3), (Same, s4)] => {
-                        if !forbidden.contains(s4) {
-                            let cond = RenjuCondition::Five {
-                                direction: *dir,
-                                stones: [**s0, **s1, **s2, **s3, **s4],
-                                place: [**s0],
-                            };
-                            conditions.insert(cond);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        // TODO: If a place is part of a five, and is a four or three fork, allow it.
-
-        // TODO: If a place is part of a 4x4 fork, and is a place
-
         for (k, v) in &fours {
             if stone.is_black() && v.len() > 1 {
                 forbidden.insert(***k);
             } else {
                 conditions.insert(v.first().unwrap().clone());
+            }
+        }
+
+        tracing::debug!("checking fives");
+        for (dir, stone_line) in &lines {
+            for line in stone_line.windows(7) {
+                match line {
+                    // %XXXX_%
+                    [(left, _), (Same, s0), (Same, s1), (Same, s2), (Same, s3), (Empty, s4), (right, _)] =>
+                    {
+                        if stone.is_black() && (matches!(right, Same) || matches!(left, Same)) {
+                            continue;
+                        }
+                        let cond = RenjuCondition::Five {
+                            direction: *dir,
+                            stones: [**s0, **s1, **s2, **s3, **s4],
+                            place: [**s4],
+                        };
+                        conditions.insert(cond);
+                        forbidden.remove(*s4);
+                    }
+                    // %_XXXX%
+                    [(left, _), (Empty, s0), (Same, s1), (Same, s2), (Same, s3), (Same, s4), (right, _)] =>
+                    {
+                        if stone.is_black() && (matches!(left, Same) || matches!(right, Same)) {
+                            continue;
+                        }
+                        let cond = RenjuCondition::Five {
+                            direction: *dir,
+                            stones: [**s0, **s1, **s2, **s3, **s4],
+                            place: [**s0],
+                        };
+                        conditions.insert(cond);
+                        forbidden.remove(*s0);
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -729,7 +729,13 @@ mod tests {
             board.set_point(pos, Stone::Black);
         }
         let conditions = board.renju_conditions(Stone::Black);
-        tracing::debug!("board \n{}\n{:#?}", board, conditions);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
         assert_eq!(conditions.forbidden, p![[F, 8]].iter().copied().collect());
 
         tracing::info!("forbidden {:?}", conditions.forbidden);
@@ -764,7 +770,13 @@ mod tests {
         }
 
         let conditions = board.renju_conditions(Stone::Black);
-        tracing::debug!("board \n{}\n{:#?}", board, conditions);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
         assert_eq!(
             conditions.forbidden,
             p![[H, 9], [M, 13], [E, 3], [K, 2]]
@@ -804,7 +816,13 @@ mod tests {
         }
 
         let conditions = board.renju_conditions(Stone::Black);
-        tracing::debug!("board \n{}\n{:#?}", board, conditions);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
         assert_eq!(
             conditions.forbidden,
             p![[E, 14], [G, 8], [L, 5]].iter().copied().collect()
@@ -838,7 +856,13 @@ mod tests {
         }
 
         let conditions = board.renju_conditions(Stone::Black);
-        tracing::debug!("board \n{}\n{:#?}", board, conditions);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
         // N13 and D12 are not forbidden
         assert_eq!(
             conditions.forbidden,
@@ -866,7 +890,13 @@ mod tests {
             board.set_point(pos, Stone::White);
         }
         let conditions = board.renju_conditions(Stone::Black);
-        tracing::debug!("board \n{}\n{:#?}", board, conditions);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
         assert_eq!(conditions.forbidden, BTreeSet::new(),)
     }
 

@@ -265,6 +265,7 @@ impl fmt::Display for BoardMarker {
                 "."
             } else {
                 match self.color {
+                    Stone::Empty if self.oneline_comment.is_some() => &self.oneline_comment.as_deref().unwrap()[0..1],
                     Stone::Empty => ".",
                     Stone::White => "O",
                     Stone::Black => "X",
