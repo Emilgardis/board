@@ -767,9 +767,8 @@ mod tests {
         ] {
             board.set_point(pos, Stone::Black);
         }
-        for pos in p![[B, 13]] {
-            board.set_point(pos, Stone::White);
-        }
+
+        board.set_point(p![B, 13], Stone::White);
 
         let conditions = board.renju_conditions(Stone::Black);
         for forbidden in &conditions.forbidden {
@@ -813,9 +812,7 @@ mod tests {
             board.set_point(pos, Stone::Black);
         }
 
-        for pos in p![[E, 10]] {
-            board.set_point(pos, Stone::White);
-        }
+        board.set_point(p![E, 10], Stone::White);
 
         let conditions = board.renju_conditions(Stone::Black);
         for forbidden in &conditions.forbidden {

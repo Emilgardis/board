@@ -6,7 +6,7 @@ description = "A WIP game board for renju designed in rust!"
 readme = "README.md"
 license = "MIT"
 publish = false
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "renju"
@@ -52,3 +52,4 @@ test-log = { version = "0.2.11", default-features = false, features = [
 
 [workspace]
 members = ["renju-ui"]
+resolver = "2"
