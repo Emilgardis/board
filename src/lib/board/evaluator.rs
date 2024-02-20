@@ -664,6 +664,7 @@ mod tests {
         for pos in p![[H, 8], [G, 8], [G, 9], [H, 10]] {
             board.set_point(pos, Stone::Black);
         }
+        tracing::debug!("board \n{}", board);
         let conditions = board.renju_conditions(Stone::Black);
         assert_eq!(conditions.forbidden, p![[F, 8]].iter().copied().collect());
 
@@ -698,6 +699,7 @@ mod tests {
             board.set_point(pos, Stone::White);
         }
 
+        tracing::debug!("board \n{}", board);
         let conditions = board.renju_conditions(Stone::Black);
         assert_eq!(
             conditions.forbidden,
@@ -737,6 +739,7 @@ mod tests {
             board.set_point(pos, Stone::White);
         }
 
+        tracing::debug!("board \n{}", board);
         let conditions = board.renju_conditions(Stone::Black);
         assert_eq!(
             conditions.forbidden,
@@ -770,15 +773,10 @@ mod tests {
             board.set_point(pos, Stone::White);
         }
 
+        tracing::debug!("board \n{}", board);
         let conditions = board.renju_conditions(Stone::Black);
         // N13 and D12 are not forbidden
-        assert_eq!(
-            conditions.forbidden,
-            p![[D, 4]]
-                .iter()
-                .copied()
-                .collect()
-        );
+        assert_eq!(conditions.forbidden, p![[D, 4]].iter().copied().collect());
     }
 
     #[test]
