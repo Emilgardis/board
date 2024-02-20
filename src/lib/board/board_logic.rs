@@ -247,10 +247,7 @@ impl fmt::Debug for BoardMarker {
                     "0xindex_in_file",
                     &format!("0x{:X}", self.index_in_file.unwrap_or_default()),
                 )
-                .field(
-                    "index_in_file",
-                    &self.index_in_file,
-                )
+                .field("index_in_file", &self.index_in_file)
                 .finish()
         }
     }
@@ -265,7 +262,9 @@ impl fmt::Display for BoardMarker {
                 "."
             } else {
                 match self.color {
-                    Stone::Empty if self.oneline_comment.is_some() => &self.oneline_comment.as_deref().unwrap()[0..1],
+                    Stone::Empty if self.oneline_comment.is_some() => {
+                        &self.oneline_comment.as_deref().unwrap()[0..1]
+                    }
                     Stone::Empty => ".",
                     Stone::White => "O",
                     Stone::Black => "X",

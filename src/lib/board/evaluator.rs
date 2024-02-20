@@ -708,24 +708,10 @@ mod tests {
         board::{BoardArr, BoardMarker, Point, Stone},
         p,
     };
-
-    fn log() {
-        let _ = tracing_subscriber::fmt()
-            .with_test_writer()
-            .with_file(true)
-            .with_line_number(true)
-            .with_target(false)
-            .with_max_level(
-                "debug"
-                    .parse::<tracing::level_filters::LevelFilter>()
-                    .unwrap(),
-            )
-            .try_init();
-    }
+    use test_log::test;
 
     #[test]
     fn test_condition() {
-        log();
         let mut board = BoardArr::new(15);
         for pos in p![[H, 8], [G, 8], [G, 9], [H, 10]] {
             board.set_point(pos, Stone::Black);
@@ -902,7 +888,6 @@ mod tests {
     #[test]
     #[rustfmt::skip]
     fn line() {
-        log();
         let board = BoardArr::new(15);
 
         let p = p![H, 8];
@@ -994,7 +979,6 @@ mod tests {
 
     #[test]
     fn all_lines_is_all_lines_and_not_twice() {
-        log();
         let board = BoardArr::new(15);
         let mut all_lines = BTreeMap::new();
 
@@ -1027,7 +1011,6 @@ mod tests {
 
     #[test]
     fn check_if_illegal_move() {
-        log();
         let mut board = BoardArr::new(15);
         for pos in p![[H, 8], [G, 8], [G, 9], [H, 10]] {
             board.set_point(pos, Stone::Black);
@@ -1039,7 +1022,6 @@ mod tests {
 
     #[test]
     fn is_horizontal_five_in_a_row() {
-        log();
         let mut board = BoardArr::new(15);
         let y = 7u32;
         let p1 = BoardMarker::new(Point::new(4, y), Stone::Black);
@@ -1060,7 +1042,6 @@ mod tests {
 
     #[test]
     fn is_vertical_five_in_a_row() {
-        log();
         let mut board = BoardArr::new(15);
         let x = 7u32;
         let p1 = BoardMarker::new(Point::new(x, 4), Stone::Black);
@@ -1082,7 +1063,6 @@ mod tests {
 
     #[test]
     fn is_diagonal_five_in_a_row() {
-        log();
         let mut board = BoardArr::new(15);
         // A diagonal is '\'
         for pos in &[2u32 + 7 * 15, 3u32 + 8 * 15, 4u32 + 9 * 15, 5u32 + 10 * 15] {
@@ -1110,7 +1090,6 @@ mod tests {
     }
     #[test]
     fn is_anti_diagonal_five_in_a_row() {
-        log();
         let mut board = BoardArr::new(15);
         for pos in &[6u32 + 6 * 15, 5u32 + 7 * 15, 4u32 + 8 * 15, 3u32 + 9 * 15] {
             board.set_point(Point::from_1d(*pos, 15), Stone::Black);

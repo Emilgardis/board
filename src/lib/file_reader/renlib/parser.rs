@@ -175,7 +175,9 @@ mod tests {
                     index_in_file: Some(40),
                     ..BoardMarker::null()
                 }
-            ], "got {:#?}", basic
+            ],
+            "got {:#?}",
+            basic
         );
         Ok(())
     }
@@ -300,7 +302,9 @@ mod tests {
                     index_in_file: Some(20),
                     ..BoardMarker::null()
                 }
-            ], "got {:#?}", board
+            ],
+            "got {:#?}",
+            board
         );
         Ok(())
     }
@@ -337,7 +341,7 @@ pub fn parse_v3x(
             bytes.read_exact(&mut buf)?;
             index += 2;
             // tracing::trace!("extension: {:#4b}, {:#4b}", buf[0], buf[1]);
-            let mut cmd = command.0.bits & 0xFF;
+            let mut cmd = command.0.bits() & 0xFF;
 
             cmd |= ((u32::from(buf[0]) << 8) | u32::from(buf[1])) << 8;
             Command::new(cmd)?

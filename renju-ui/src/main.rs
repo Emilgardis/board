@@ -19,6 +19,7 @@ async fn main() -> Result<(), color_eyre::Report> {
         "eframe template",
         native_options,
         Box::new(|cc| Box::new(renju_ui::RenjuApp::new(cc))),
-    );
+    )
+    .unwrap();
     Ok(())
 }

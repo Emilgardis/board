@@ -57,8 +57,8 @@ impl eframe::App for RenjuApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    #[tracing::instrument(skip(self, ctx, frame), fields(move_list = ?self.board.graph().move_list()))]
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    #[tracing::instrument(skip(self, ctx), fields(move_list = ?self.board.graph().move_list()))]
+    fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
         let Self {
             label: _,
             value: _,
@@ -82,7 +82,7 @@ impl eframe::App for RenjuApp {
             egui::menu::bar(ui, |ui| {
                 ui.menu_button("File", |ui| {
                     if ui.button("Quit").clicked() {
-                        frame.close();
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                     }
                 });
                 ui.menu_button("Transform", |ui| {
@@ -160,11 +160,15 @@ impl eframe::App for RenjuApp {
                 ui.text_edit_multiline(&mut format!("Moves I: {moves_i:?}"));
                 ui.text_edit_multiline(&mut format!(
                     "Positions: {:?}",
-                    board.board().iter().filter_map(|s| if !s.color.is_empty() {
-                        Some(s.point)
-                    } else {
-                        None
-                    }).collect::<Vec<_>>()
+                    board
+                        .board()
+                        .iter()
+                        .filter_map(|s| if !s.color.is_empty() {
+                            Some(s.point)
+                        } else {
+                            None
+                        })
+                        .collect::<Vec<_>>()
                 ));
                 ui.text_edit_multiline(&mut format!("Transform: {:?}", board.transform()));
 

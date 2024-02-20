@@ -1,13 +1,13 @@
-pub use board_logic::{BoardArr, BoardMarker, Point, Stone};
 use crate::errors::ParseError;
+pub use board_logic::{BoardArr, BoardMarker, Point, Stone};
 use daggy;
 use daggy::Walker;
 use std::fmt;
 
 use std::str::FromStr;
 
-pub mod evaluator;
 pub mod board_logic;
+pub mod evaluator;
 
 pub type BigU = usize;
 pub type NodeIndex = daggy::NodeIndex<BigU>;
@@ -525,7 +525,8 @@ impl Board {
     #[must_use]
     pub fn get_root(&self) -> MoveIndex {
         *self
-            .move_list.first()
+            .move_list
+            .first()
             .expect("move_list should never be empty")
     }
 

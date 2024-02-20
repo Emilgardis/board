@@ -123,7 +123,7 @@ impl BoardRender {
         for point in [p![H, 8], p![D, 12], p![D, 4], p![L, 4], p![L, 12]] {
             painter.rect_filled(
                 Rect::from_center_size(self.pos_at(&point).0, Vec2::splat(sq_size * 0.01)),
-                Rounding::none(),
+                Rounding::ZERO,
                 Color32::BLACK,
             );
         }
@@ -178,14 +178,14 @@ impl BoardRender {
                 if variant_type == &VariantType::Transformation {
                     //painter.circle(pos, 3.0, Color32::RED, Stroke::new(2.0, Color32::BLACK))
                 } else {
-                    painter.circle(pos, 3.0, Color32::GOLD, Stroke::new(2.0, Color32::BLACK))
+                    painter.circle(pos, 3.0, Color32::GOLD, Stroke::new(2.0, Color32::BLACK));
                 }
             }
         }
         for child in children {
             let marker = board.graph.get_move(child).unwrap();
             let (_, pos) = self.pos_at(&marker.point);
-            painter.circle(pos, 3.0, Color32::WHITE, Stroke::new(2.0, Color32::BLACK))
+            painter.circle(pos, 3.0, Color32::WHITE, Stroke::new(2.0, Color32::BLACK));
         }
     }
 
@@ -201,7 +201,10 @@ impl BoardRender {
             let x2 = x + size;
             let y1 = y - size;
             let y2 = y + size;
-            painter.line_segment([Pos2::new(x1, y1), Pos2::new(x2, y2)], Stroke::new(2.0, Color32::RED));
+            painter.line_segment(
+                [Pos2::new(x1, y1), Pos2::new(x2, y2)],
+                Stroke::new(2.0, Color32::RED),
+            );
         }
     }
 
@@ -339,17 +342,16 @@ impl UIBoard {
     pub fn ui(&mut self, ui: &mut egui::Ui, just_clicked: &mut bool) {
         let size = ui.available_size();
         {
-            let input = ui.ctx().input();
-            match &input.keys_down {
-                keys if input.modifiers.shift => match keys {
-                    _ if input.key_pressed(Key::ArrowRight) => {
+            match &ui.input(|i| i.keys_down.clone()) {
+                keys if ui.input(|i| i.modifiers.shift) => match keys {
+                    _ if ui.input(|i| i.key_pressed(Key::ArrowRight)) => {
                         let (walked, _children) =
                             self.graph.up_to_branch(&self.graph().current_move());
                         if let Some(last) = walked.last() {
                             self.change_current_move(last);
                         }
                     }
-                    _ if input.key_pressed(Key::ArrowLeft) => {
+                    _ if ui.input(|i| i.key_pressed(Key::ArrowLeft)) => {
                         let down = self.graph().get_down(&self.graph().current_move());
                         if let Some(parent) = &down {
                             self.change_current_move(parent);
@@ -357,13 +359,13 @@ impl UIBoard {
                     }
                     _ => (),
                 },
-                _ if input.key_pressed(Key::ArrowRight) => {
+                _ if ui.input(|i| i.key_pressed(Key::ArrowRight)) => {
                     let up = self.graph().get_children(&self.graph().current_move());
                     if let &[child] = &up[..] {
                         self.change_current_move(&child);
                     }
                 }
-                _ if input.key_pressed(Key::ArrowLeft) => {
+                _ if ui.input(|i| i.key_pressed(Key::ArrowLeft)) => {
                     let down = self.graph().get_parent_strong(&self.graph().current_move());
                     if let Some(parent) = &down {
                         self.change_current_move(parent);
@@ -420,14 +422,14 @@ impl UIBoard {
                                         .map_or(false, |m| m.color.is_empty())
                                     {
                                         let mut marker = BoardMarker::new(point, Stone::Empty);
-                                        if response.ctx.input().modifiers.shift_only() {
+                                        if response.ctx.input(|i| i.modifiers.shift_only()) {
                                             *marker.command |=
                                                 CommandVariant::MARK | CommandVariant::NOMOVE;
                                             marker.set_oneline_comment("A".to_owned());
                                             self.add_marker(marker);
                                         } else {
                                             let enter_variant =
-                                                if response.ctx.input().modifiers.command {
+                                                if response.ctx.input(|i| i.modifiers.command) {
                                                     if let Some((_, v, t, _vt)) = self
                                                         .variants()
                                                         .iter()
@@ -488,7 +490,7 @@ impl UIBoard {
                                         3.0,
                                         Color32::BLUE,
                                         Stroke::new(2.0, Color32::BLACK),
-                                    )
+                                    );
                                 }
                                 if self.variants_and_transformations.iter().any(|(m, _, _, variant_type)| m.point == closest && variant_type == &VariantType::Variant) {
                                     egui::containers::show_tooltip_at_pointer(

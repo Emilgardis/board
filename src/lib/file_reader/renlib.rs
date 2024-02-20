@@ -19,6 +19,7 @@ pub const MASK: u32 = 0x00FF_FF3F;
 
 bitflags! {
     #[repr(transparent)]
+    #[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct CommandVariant: u32 {
         // Extensions
