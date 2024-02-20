@@ -227,7 +227,7 @@ impl BoardArr {
             for line in stone_line.windows(9) {
                 match line {
                     // %.__XX.%
-                    [(left, _), (Empty, s1), (Empty, s2), (Empty, s3), (Same, s4), (Same, s5), (Empty, s6), (right, _), (eh_case, _)] =>
+                    [(left, _), (Empty, _s1), (Empty, s2), (Empty, s3), (Same, s4), (Same, s5), (Empty, _s6), (right, _), (eh_case, _)] =>
                     {
                         match (left, right) {
                             (_, Same) => {
@@ -261,7 +261,7 @@ impl BoardArr {
                         }
                     }
                     // %.XX__.%
-                    [(eh_case, _), (left, _), (Empty, s1), (Same, s2), (Same, s3), (Empty, s4), (Empty, s5), (Empty, s6), (right, _)] =>
+                    [(eh_case, _), (left, _), (Empty, _s1), (Same, s2), (Same, s3), (Empty, s4), (Empty, s5), (Empty, _s6), (right, _)] =>
                     {
                         match (left, right) {
                             (Same, _) => {
@@ -296,7 +296,7 @@ impl BoardArr {
                     }
 
                     // %._X_X.%
-                    [(left, s0), (Empty, s1), (Empty, s2), (Same, s3), (Empty, s4), (Same, s5), (Empty, s6), (right, s7), ..] =>
+                    [(left, _s0), (Empty, _s1), (Empty, s2), (Same, s3), (Empty, s4), (Same, s5), (Empty, _s6), (right, _s7), ..] =>
                     {
                         match (left, right) {
                             (_, Same) => {
@@ -325,7 +325,7 @@ impl BoardArr {
                     }
 
                     // %.X_X_.%
-                    [(left, s0), (Empty, s1), (Same, s2), (Empty, s3), (Same, s4), (Empty, s5), (Empty, s6), (right, s7), ..] =>
+                    [(left, _s0), (Empty, _s1), (Same, s2), (Empty, s3), (Same, s4), (Empty, s5), (Empty, _s6), (right, _s7), ..] =>
                     {
                         match (left, right) {
                             (Same, _) => {
@@ -353,7 +353,7 @@ impl BoardArr {
                         }
                     }
                     // %.X__X.%
-                    [(Border | NotSame | Empty, s1), (Empty, s2), (Same, s3), (Empty, s4), (Empty, s5), (Same, s6), (Empty, s7), (Border | NotSame | Empty, s8), ..] =>
+                    [(Border | NotSame | Empty, _s1), (Empty, _s2), (Same, s3), (Empty, s4), (Empty, s5), (Same, s6), (Empty, _s7), (Border | NotSame | Empty, _s8), ..] =>
                     {
                         if !forbidden.contains(s4) {
                             let cond = RenjuCondition::BrokenThree {
@@ -473,7 +473,6 @@ impl BoardArr {
                                     stones: [**s1, **s2, **s3, **s4],
                                     place: [**s2],
                                 },
-                                _ => unreachable!(),
                             };
                             fours.entry(s2).or_insert_with(BTreeSet::new).insert(cond);
                         }
@@ -503,7 +502,6 @@ impl BoardArr {
                                     stones: [**s1, **s2, **s3, **s4],
                                     place: [**s3],
                                 },
-                                _ => unreachable!(),
                             };
                             fours.entry(s3).or_insert_with(BTreeSet::new).insert(cond);
                         }
