@@ -1,8 +1,5 @@
-
-
 use egui::{Button, TextEdit, Widget};
 use poll_promise::Promise;
-
 
 use crate::board::UIBoard;
 
@@ -90,9 +87,7 @@ impl eframe::App for RenjuApp {
                 });
                 ui.menu_button("Transform", |ui| {
                     if ui.button("rotate").clicked() {
-                        board
-                            .transform_mut()
-                            .rotate(renju::board::Rotation::Deg90);
+                        board.transform_mut().rotate(renju::board::Rotation::Deg90);
                     }
                     if ui.button("Mirror -").clicked() {
                         board.transform_mut().mirror = renju::board::Mirror::Horizontal;
@@ -163,6 +158,14 @@ impl eframe::App for RenjuApp {
                 let moves_i = board.graph().move_list().iter().collect::<Vec<_>>();
                 ui.text_edit_multiline(&mut format!("Moves: {moves:?}"));
                 ui.text_edit_multiline(&mut format!("Moves I: {moves_i:?}"));
+                ui.text_edit_multiline(&mut format!(
+                    "Positions: {:?}",
+                    board.board().iter().filter_map(|s| if !s.color.is_empty() {
+                        Some(s.point)
+                    } else {
+                        None
+                    }).collect::<Vec<_>>()
+                ));
                 ui.text_edit_multiline(&mut format!("Transform: {:?}", board.transform()));
 
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::RIGHT), |ui| {

@@ -341,11 +341,11 @@ impl Board {
             move_list: &Vec<(&Point, &Stone, &MoveIndex)>,
             index: MoveIndex,
         ) -> Vec<(BoardMarker, MoveIndex, Transformation, VariantType)> {
-            tracing::debug!(?walked, ?move_list, ?index);
+            //tracing::debug!(?walked, ?move_list, ?index);
             // FIXME: currently we assume that no node can hit the same point twice, that might not be wise.
 
-            tracing::trace!("{:?}", &walked[..walked.len().saturating_sub(1)]);
-            tracing::trace!("{move_list:?}");
+            //tracing::trace!("{:?}", &walked[..walked.len().saturating_sub(1)]);
+            //tracing::trace!("{move_list:?}");
 
             let mut diff_explored = 0;
             'transform: for transform in Transformation::types() {
@@ -388,7 +388,7 @@ impl Board {
                 }
 
                 if walked.len() == move_list.len() + 1 && diff.is_some() {
-                    tracing::debug!("diff {diff:?}, walked: {walked:?}, move_list: {move_list:?}");
+                    //tracing::debug!("diff {diff:?}, walked: {walked:?}, move_list: {move_list:?}");
                     // if exactly the same path, not a variant...
                     let mut same = true;
                     for (w, ml) in walked
@@ -818,7 +818,7 @@ mod tests {
     #[allow(clippy::zero_prefixed_literal)]
     fn transforms_are_correct() {
         fn points() -> Vec<Point> {
-            p![[L, 12], [L, 11], [K, 12], [F, 4]]
+            p![[L, 12], [L, 11], [K, 12], [F, 4]].to_vec()
         }
 
         fn apply(t: Transformation) -> Vec<Point> {
@@ -897,7 +897,6 @@ impl fmt::Debug for Board {
 
 #[test]
 fn does_it_work() {
-    use super::*;
     let mut graph = Board::new();
     let a = graph.new_root(BoardMarker::new(Point::new(7, 7), Stone::Black));
     let b_1 = BoardMarker::new(Point::new(8, 7), Stone::White);

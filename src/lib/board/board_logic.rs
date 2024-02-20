@@ -12,9 +12,9 @@ use std::ops::Deref;
 #[macro_export]
 macro_rules! p {
     [$([$($i:tt)*]),* $(,)?] => {
-        vec![
+        [
             $(
-                p![$($i)*]
+                $crate::p![$($i)*]
             ),*
         ]
     };
@@ -109,19 +109,23 @@ impl Point {
     #[must_use]
     pub fn is_valid(&self) -> bool {
         let Point { x, y, .. } = *self;
-        x == 0 && y == 0 || !(!(1..=15).contains(&x) || !(1..=15).contains(&y))
+        // FIXME: Assumes grid size 15x15
+        x == 0 && y == 0 || (0..=14).contains(&x) && (0..=14).contains(&y)
     }
 }
 
 impl fmt::Debug for Point {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        if !self.is_null {
-            write!(
+        let (x, y) = (((self.x as u8 + 65u8) as char), 15 - self.y);
+        if f.alternate() {
+            return write!(
                 f,
-                "[{:>1}, {:>2}]",
-                ((self.x as u8 + 65u8) as char),
-                15 - self.y
-            )
+                "Point {{ x: {}, y: {}, is_null: {}, repr: \"[{:>1}, {:>2}]\" }}",
+                self.x, self.y, self.is_null, x, y
+            );
+        }
+        if !self.is_null {
+            write!(f, "[{:>1}, {:>2}]", x, y)
         } else {
             write!(f, "None")
         }
@@ -240,8 +244,12 @@ impl fmt::Debug for BoardMarker {
                 .field("board_text", &self.board_text)
                 .field("command", &self.command)
                 .field(
-                    "index_in_file",
+                    "0xindex_in_file",
                     &format!("0x{:X}", self.index_in_file.unwrap_or_default()),
+                )
+                .field(
+                    "index_in_file",
+                    &self.index_in_file,
                 )
                 .finish()
         }

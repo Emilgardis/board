@@ -1,8 +1,8 @@
 use egui::{style::Margin, *};
 use renju::{
+    board::{evaluator::RenjuConditions, BoardArr, BoardMarker, Point, Stone},
     board::{Board, MoveIndex, Transformation, VariantType},
-    board_logic::{BoardArr, BoardMarker, Point, Stone},
-    file_reader::renlib::{CommandVariant},
+    file_reader::renlib::CommandVariant,
     p,
 };
 
@@ -12,6 +12,8 @@ pub struct UIBoard {
     moves: Vec<Point>,
     graph: Board,
     variants_and_transformations: Vec<(BoardMarker, MoveIndex, Transformation, VariantType)>,
+    #[serde(skip)]
+    conditions: RenjuConditions,
     transform: Transformation,
 }
 
@@ -22,6 +24,7 @@ impl UIBoard {
             moves: vec![],
             graph: Board::new(),
             variants_and_transformations: vec![],
+            conditions: RenjuConditions::default(),
             transform: Transformation::identity(),
         }
     }
@@ -135,7 +138,6 @@ impl BoardRender {
             incr,
             x_offset,
             y_offset,
-            
             ..
         } = *self;
 
@@ -163,7 +165,7 @@ impl BoardRender {
     }
 
     fn marks(&self, painter: &Painter, board: &UIBoard) {
-        let BoardRender {   .. } = *self;
+        let BoardRender { .. } = *self;
 
         let children = board.graph.get_children(&board.graph.current_move());
         // find other trees with same outcome if placed
@@ -187,8 +189,24 @@ impl BoardRender {
         }
     }
 
+    fn forbidden(&self, painter: &Painter, board: &UIBoard) {
+        let BoardRender { .. } = *self;
+        for point in &board.conditions.forbidden {
+            let (_, pos) = self.pos_at(point);
+            // lets go the renlib route, a big red X
+            let size = 10.0;
+            let x = pos.x;
+            let y = pos.y;
+            let x1 = x - size;
+            let x2 = x + size;
+            let y1 = y - size;
+            let y2 = y + size;
+            painter.line_segment([Pos2::new(x1, y1), Pos2::new(x2, y2)], Stroke::new(2.0, Color32::RED));
+        }
+    }
+
     /// Returns the position of the center of the point. Not transformed and transformed
-    fn pos_at(&self, point: &renju::board_logic::Point) -> (Pos2, Pos2) {
+    fn pos_at(&self, point: &renju::board::Point) -> (Pos2, Pos2) {
         let BoardRender {
             rect,
             incr,
@@ -250,7 +268,7 @@ impl BoardRender {
 
         let (x_div, y_div) = (x.div_euclid(incr) as i32, y.div_euclid(incr) as i32);
 
-        tracing::debug!(?x_div, ?y_div, "integer point");
+        //tracing::debug!(?x_div, ?y_div, "integer point");
         if let (x_div @ 0.., y_div @ 0..) = (x_div, y_div) {
             if x_div >= lines as i32 || y_div >= lines as i32 {
                 return None;
@@ -388,6 +406,7 @@ impl UIBoard {
 
                     render.stones(&painter, self);
                     render.marks(&painter, self);
+                    render.forbidden(&painter, self);
 
                     if response.clicked() || response.hovered() {
                         if response.clicked() {
@@ -515,7 +534,7 @@ impl UIBoard {
         let (board, moves) = self.graph.as_board(&idx).unwrap();
         self.board = board;
         self.moves = moves;
-        self.update_variants();
+        self.update();
         existing.is_some()
     }
 
@@ -527,10 +546,19 @@ impl UIBoard {
         let (board, moves) = self.graph.as_board(&self.graph.current_move()).unwrap();
         self.moves = moves;
         self.board = board;
-        self.update_variants();
+        self.update();
     }
 
-    #[tracing::instrument(skip(self))]
+    pub fn update(&mut self) {
+        self.update_variants();
+        let stone = self.current_move().color;
+        if !stone.is_empty() {
+            self.conditions = self.board.renju_conditions(stone.opposite());
+            tracing::debug!(?self.conditions.forbidden, "updated conditions");
+        } else {
+            self.conditions = RenjuConditions::default();
+        }
+    }
     pub fn update_variants(&mut self) {
         let current_move = self.graph.current_move();
         self.variants_and_transformations = self
@@ -542,8 +570,11 @@ impl UIBoard {
             .get_children(&current_move)
             .into_iter()
             .filter_map(|mi| self.graph.get_move(mi));
-        self.variants_and_transformations
-            .retain(|(p, .., typ)| !children.clone().any(|other| p.point == other.point && typ == &VariantType::Transformation));
+        self.variants_and_transformations.retain(|(p, .., typ)| {
+            !children
+                .clone()
+                .any(|other| p.point == other.point && typ == &VariantType::Transformation)
+        });
 
         // for (marker, _, variant, _) in &self.variants_and_transformations {
         //     if let Some(marker) = self.board.get_point(marker.point) {

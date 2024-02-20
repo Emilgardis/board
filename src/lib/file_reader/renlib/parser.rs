@@ -5,15 +5,12 @@ pub use super::{Command, CommandVariant};
 
 #[cfg(test)]
 mod tests {
-    use test_log::test;
-    use std::io::BufRead;
-    use crate::p;
     use super::*;
+    use crate::p;
+    use std::io::BufRead;
+    use test_log::test;
 
-    use super::{
-        super::{Command, CommandVariant, Stone, Version},
-        *,
-    };
+    use super::super::{Command, CommandVariant, Stone, Version};
 
     fn buf(b: &'static [u8]) -> impl BufRead {
         b
@@ -43,119 +40,142 @@ mod tests {
 
     #[test]
     fn basic() -> Result<(), color_eyre::Report> {
+        let basic = parse_v30(&[
+            0x78, 0x00, 0x68, 0x80, 0x66, 0x00, 0x49, 0x00, 0x58, 0x00, 0x79, 0x00, 0x69, 0x00,
+            0x7A, 0x00, 0x59, 0x00, 0x4A, 0x80, 0x5A, 0x40, 0x5A, 0x40, 0x69, 0xC0, 0x8A, 0x00,
+            0x69, 0x00, 0x8B, 0x00, 0x68, 0x00, 0x7B, 0x00, 0x7A, 0x00, 0x6B, 0x00, 0x58, 0x40,
+        ])?;
         assert_eq!(
-            parse_v30(&[
-                0x78, 0x00, 0x68, 0x80, 0x66, 0x00, 0x49, 0x00, 0x58, 0x00, 0x79, 0x00, 0x69, 0x00,
-                0x7A, 0x00, 0x59, 0x00, 0x4A, 0x80, 0x5A, 0x40, 0x5A, 0x40, 0x69, 0xC0, 0x8A, 0x00,
-                0x69, 0x00, 0x8B, 0x00, 0x68, 0x00, 0x7B, 0x00, 0x7A, 0x00, 0x6B, 0x00, 0x58, 0x40,
-            ])?,
+            basic,
             [
                 BoardMarker {
                     point: p![H, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(0),
+
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 9],
                     command: Command(CommandVariant::DOWN),
+                    index_in_file: Some(2),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![F, 9],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(4),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 11],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(6),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 10],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(8),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(10),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 9],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(12),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(14),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 10],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(16),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 11],
                     command: Command(CommandVariant::DOWN),
+                    index_in_file: Some(18),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 10],
                     command: Command(CommandVariant::RIGHT),
+                    index_in_file: Some(20),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 10],
                     command: Command(CommandVariant::RIGHT),
+                    index_in_file: Some(22),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 9],
                     command: Command(CommandVariant::DOWN | CommandVariant::RIGHT),
+                    index_in_file: Some(24),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 7],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(26),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 9],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(28),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![K, 7],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(30),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 9],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(32),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![K, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(34),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![J, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(36),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![K, 9],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(38),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![H, 10],
                     command: Command(CommandVariant::RIGHT),
+                    index_in_file: Some(40),
                     ..BoardMarker::null()
                 }
-            ]
+            ], "got {:#?}", basic
         );
         Ok(())
     }
@@ -176,7 +196,7 @@ mod tests {
                     multiline_comment: Some("This comment on 78".to_owned()),
                     board_text: None,
                     command: Command(CommandVariant::COMMENT),
-                    index_in_file: None,
+                    index_in_file: Some(0),
                 },
                 BoardMarker {
                     point: Point::from_byte(0x87)?,
@@ -185,7 +205,7 @@ mod tests {
                     multiline_comment: Some("Im from 87".to_owned()),
                     board_text: None,
                     command: Command(CommandVariant::RIGHT | CommandVariant::COMMENT),
-                    index_in_file: None,
+                    index_in_file: Some(22),
                 }
             ]
         );
@@ -200,11 +220,13 @@ mod tests {
                 BoardMarker {
                     point: p![H, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(0),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
                     point: p![I, 8],
                     command: Command(CommandVariant::RIGHT),
+                    index_in_file: Some(2),
                     ..BoardMarker::null()
                 }
             ]
@@ -214,15 +236,17 @@ mod tests {
 
     #[test]
     fn board_marker() -> Result<(), color_eyre::Report> {
+        let board = parse_v30(&[
+            0x78, 0x00, 0x68, 0xC3, 0x00, 0x01, 0x44, 0x00, 0x77, 0xC3, 0x00, 0x01, 0x42, 0x00,
+            0x79, 0xC3, 0x00, 0x01, 0x41, 0x00, 0x88, 0x43, 0x00, 0x01, 0x43, 0x00,
+        ])?;
         assert_eq!(
-            parse_v30(&[
-                0x78, 0x00, 0x68, 0xC3, 0x00, 0x01, 0x44, 0x00, 0x77, 0xC3, 0x00, 0x01, 0x42, 0x00,
-                0x79, 0xC3, 0x00, 0x01, 0x41, 0x00, 0x88, 0x43, 0x00, 0x01, 0x43, 0x00,
-            ])?,
+            board,
             [
                 BoardMarker {
                     point: p![H, 8],
                     command: Command(CommandVariant::empty()),
+                    index_in_file: Some(0),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
@@ -235,6 +259,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
+                    index_in_file: Some(2),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
@@ -247,6 +272,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
+                    index_in_file: Some(8),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
@@ -259,6 +285,7 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
+                    index_in_file: Some(14),
                     ..BoardMarker::null()
                 },
                 BoardMarker {
@@ -270,9 +297,10 @@ mod tests {
                             | CommandVariant::NOMOVE
                             | CommandVariant::EXTENSION
                     ),
+                    index_in_file: Some(20),
                     ..BoardMarker::null()
                 }
-            ]
+            ], "got {:#?}", board
         );
         Ok(())
     }
@@ -347,7 +375,10 @@ pub fn parse_v3x(
     Ok(vec)
 }
 
-pub fn read_text(mut bytes: impl std::io::Read, buf: &mut Vec<u8>) -> Result<usize, std::io::Error> {
+pub fn read_text(
+    mut bytes: impl std::io::Read,
+    buf: &mut Vec<u8>,
+) -> Result<usize, std::io::Error> {
     // TODO: Should be moved to be initialized once
     let mut index = 0;
 
@@ -376,7 +407,10 @@ pub enum ParseBoardTextError {
     Io(#[from] std::io::Error),
 }
 
-fn parse_board_text(bytes: impl std::io::Read, buf: &mut Vec<u8>) -> Result<(String, usize), ParseBoardTextError> {
+fn parse_board_text(
+    bytes: impl std::io::Read,
+    buf: &mut Vec<u8>,
+) -> Result<(String, usize), ParseBoardTextError> {
     // Board text is a null padded null-ending string, iff len % 2 == 1
     // so: the string "AA\0" becomes "AA\0\0"
 
