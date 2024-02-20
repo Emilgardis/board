@@ -376,12 +376,12 @@ impl BoardArr {
                 }
             }
         }
-        for (k, v) in &threes {
+        for (k, v) in threes {
             if stone.is_black() && v.len() > 1 {
                 tracing::debug!(point = ?k, ?v, "forbidden");
-                forbidden.insert(***k);
+                forbidden.insert(**k);
             } else {
-                conditions.insert(v.first().unwrap().clone());
+                conditions.extend(v);
             }
         }
 
@@ -519,11 +519,11 @@ impl BoardArr {
             }
         }
 
-        for (k, v) in &fours {
+        for (k, v) in fours {
             if stone.is_black() && v.len() > 1 {
-                forbidden.insert(***k);
+                forbidden.insert(**k);
             } else {
-                conditions.insert(v.first().unwrap().clone());
+                conditions.extend(v);
             }
         }
 
