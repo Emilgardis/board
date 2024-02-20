@@ -1,0 +1,19 @@
+{
+    "terminal.integrated.env.osx": {
+        "RUST_LOG": "info"
+    },
+    "terminal.integrated.env.linux": {
+        "RUST_LOG": "info"
+    },
+    "terminal.integrated.env.windows": {
+        "RUST_LOG": "info"
+    },
+    "files.associations": {
+        "vector": "cpp",
+        "locale": "cpp",
+        "streambuf": "cpp",
+        "atomic": "cpp",
+        "tuple": "cpp",
+        "variant": "cpp"
+    }
+}
