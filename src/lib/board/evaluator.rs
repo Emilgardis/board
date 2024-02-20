@@ -564,6 +564,10 @@ impl BoardArr {
             }
         }
 
+        if stone.is_white() {
+            assert!(forbidden.is_empty());
+        }
+
         RenjuConditions {
             conditions,
             forbidden,
