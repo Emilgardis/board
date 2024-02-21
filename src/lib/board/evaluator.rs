@@ -910,7 +910,7 @@ mod tests {
         assert_eq!(conditions.forbidden, BTreeSet::new(),)
     }
 
-    // This test is ignored since it's a very tricky case, and I don't know how to solve it. Would probably have to recurse...
+    // This test is ignored since it's a very tricky case, and I don't know how to solve it yet
     // See https://github.com/dhbloo/rapfi/blob/b9e89301f476fe8acc3ef876f73a27664498c6de/Rapfi/game/board.cpp#L434
     #[test]
     #[ignore]
@@ -949,11 +949,11 @@ mod tests {
         }
         tracing::debug!("board \n{}", board);
         // According to https://www.aiexp.info/pages/wiki-three-def.html, [D, 13] is not forbidden.
-        // Some might say that it should be forbidden, but I think it isn't due to 9.3 in the [RIF Rules](https://www.renju.net/rifrules/).
+        // Some might say that it should be forbidden, but it isn't due to 9.3 in the [RIF Rules](https://www.renju.net/rifrules/) and the definition of a three excluding threes whose four point create a five.
         // A black double-three is allowed if at least one of the following conditions  a)   or  b) is/are fulfilled:
         // a) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection, without at the same time an overline or double-four is attained in this intersection.
         // b) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection, without at the same time at least two three's meet in this intersection and make a forbidden double-three.
-        // So, D13 is not forbidden since F13 is part of the to be forbidden three, and F13 is forbidden
+        // So, D13 is not forbidden since F14 as a broken three is not a three, it's a false three, since it would create a five.
         assert_eq!(
             conditions.forbidden,
             p![[E, 13], [F, 14]].iter().copied().collect(),

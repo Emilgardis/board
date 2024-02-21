@@ -444,7 +444,7 @@ impl UIBoard {
                                                 };
                                             if let Some((variant, transform)) = enter_variant {
                                                 // entering variant, applying transform
-                                                tracing::info!("entering variant");
+                                                tracing::info!(from_transform = ?self.transform, to_transform = ?transform, "entering variant");
                                                 self.transform = self.transform.transform(*transform);
                                                 self.change_current_move(&variant);
                                             } else {

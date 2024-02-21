@@ -324,7 +324,7 @@ impl Point {
 }
 
 /// Holds all `BoardMarker`'s in a `Board`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoardArr(Vec<BoardMarker>, u32);
 
