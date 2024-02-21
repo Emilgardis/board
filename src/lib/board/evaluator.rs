@@ -189,6 +189,45 @@ impl BoardArr {
         let mut conditions = BTreeSet::new();
         let mut forbidden = BTreeSet::new();
 
+        let mut fives = BTreeSet::new();
+
+        tracing::debug!("checking fives");
+        for (dir, stone_line) in &lines {
+            for line in stone_line.windows(7) {
+                match line {
+                    // %XXXX_%
+                    [(left, _), (Same, s0), (Same, s1), (Same, s2), (Same, s3), (Empty, s4), (right, _)] =>
+                    {
+                        if stone.is_black() && (matches!(right, Same) || matches!(left, Same)) {
+                            continue;
+                        }
+                        let cond = RenjuCondition::Five {
+                            direction: *dir,
+                            stones: [**s0, **s1, **s2, **s3, **s4],
+                            place: [**s4],
+                        };
+                        conditions.insert(cond);
+                        fives.insert(s4);
+                    }
+                    // %_XXXX%
+                    [(left, _), (Empty, s0), (Same, s1), (Same, s2), (Same, s3), (Same, s4), (right, _)] =>
+                    {
+                        if stone.is_black() && (matches!(left, Same) || matches!(right, Same)) {
+                            continue;
+                        }
+                        let cond = RenjuCondition::Five {
+                            direction: *dir,
+                            stones: [**s0, **s1, **s2, **s3, **s4],
+                            place: [**s0],
+                        };
+                        conditions.insert(cond);
+                        fives.insert(s0);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         let mut threes = BTreeMap::new();
 
         // First check for overlines.
@@ -376,8 +415,31 @@ impl BoardArr {
                 }
             }
         }
+
         for (k, v) in threes {
             if stone.is_black() && v.len() > 1 {
+                // 9.3 A black double-three is allowed if at least one of the following conditions  a) or b) is/are fulfilled:
+                // a) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection,
+                //    without at the same time an overline or double-four is attained in this intersection.
+                //    To find out which double-three's, which are allowed, you must make the move, which causes the double-three,
+                //    in your mind, and then continue trying to make straight fours, which are allowed, in your mind.
+                // b) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection,
+                //    without at the same time at least two three's meet in this intersection and make a forbidden double-three.
+                //    To find out if this last double-three is forbidden or not, you must at first examine if
+                //    the double-three is allowed according to a) above, and then in your mind continue trying to make straight fours of the three's in your mind.
+                //    If, when making a straight four in your mind, another double-three would be attained also these double-three's must be examined
+                //    in the same way as it is described in this point 9.3, etc.
+                let mut new_board = self.clone();
+                new_board.set_point(**k, stone);
+
+                // First check for overlines and double-four, case a).
+
+                // TODO
+
+                // Then check for double-three, case b).
+
+                // TODO
+
                 tracing::debug!(point = ?k, ?v, "forbidden");
                 forbidden.insert(**k);
             } else {
@@ -524,43 +586,6 @@ impl BoardArr {
                 forbidden.insert(**k);
             } else {
                 conditions.extend(v);
-            }
-        }
-
-        tracing::debug!("checking fives");
-        for (dir, stone_line) in &lines {
-            for line in stone_line.windows(7) {
-                match line {
-                    // %XXXX_%
-                    [(left, _), (Same, s0), (Same, s1), (Same, s2), (Same, s3), (Empty, s4), (right, _)] =>
-                    {
-                        if stone.is_black() && (matches!(right, Same) || matches!(left, Same)) {
-                            continue;
-                        }
-                        let cond = RenjuCondition::Five {
-                            direction: *dir,
-                            stones: [**s0, **s1, **s2, **s3, **s4],
-                            place: [**s4],
-                        };
-                        conditions.insert(cond);
-                        forbidden.remove(*s4);
-                    }
-                    // %_XXXX%
-                    [(left, _), (Empty, s0), (Same, s1), (Same, s2), (Same, s3), (Same, s4), (right, _)] =>
-                    {
-                        if stone.is_black() && (matches!(left, Same) || matches!(right, Same)) {
-                            continue;
-                        }
-                        let cond = RenjuCondition::Five {
-                            direction: *dir,
-                            stones: [**s0, **s1, **s2, **s3, **s4],
-                            place: [**s0],
-                        };
-                        conditions.insert(cond);
-                        forbidden.remove(*s0);
-                    }
-                    _ => {}
-                }
             }
         }
 
@@ -883,6 +908,56 @@ mod tests {
         }
         tracing::debug!("board \n{}", board);
         assert_eq!(conditions.forbidden, BTreeSet::new(),)
+    }
+
+    // This test is ignored since it's a very tricky case, and I don't know how to solve it. Would probably have to recurse...
+    // See https://github.com/dhbloo/rapfi/blob/b9e89301f476fe8acc3ef876f73a27664498c6de/Rapfi/game/board.cpp#L434
+    #[test]
+    #[ignore]
+    fn even_trickier_forbidden() {
+        let mut board = BoardArr::new(15);
+
+        let mut stone = Stone::Black;
+        for pos in p![
+            [D, 14],
+            [E, 14],
+            [C, 13],
+            [C, 12],
+            [D, 12],
+            [A, 9],
+            [C, 11],
+            [E, 11],
+            [F, 12],
+            [G, 12],
+            [F, 13],
+            [N, 13],
+            [H, 12],
+            [N, 11],
+            [I, 11],
+            [E, 12]
+        ] {
+            board.set_point(pos, stone);
+            stone = stone.opposite();
+        }
+
+        let conditions = board.renju_conditions(Stone::Black);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
+        // According to https://www.aiexp.info/pages/wiki-three-def.html, [D, 13] is not forbidden.
+        // Some might say that it should be forbidden, but I think it isn't due to 9.3 in the [RIF Rules](https://www.renju.net/rifrules/).
+        // A black double-three is allowed if at least one of the following conditions  a)   or  b) is/are fulfilled:
+        // a) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection, without at the same time an overline or double-four is attained in this intersection.
+        // b) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection, without at the same time at least two three's meet in this intersection and make a forbidden double-three.
+        // So, D13 is not forbidden since F13 is part of the to be forbidden three, and F13 is forbidden
+        assert_eq!(
+            conditions.forbidden,
+            p![[E, 13], [F, 14]].iter().copied().collect(),
+        )
     }
 
     #[test]
