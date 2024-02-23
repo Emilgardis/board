@@ -1,7 +1,7 @@
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use renju::errors::ParseError;
 
-use std::path::Path;
+
 
 use color_eyre::eyre::WrapErr;
 use renju::board::{Board, BoardArr, BoardMarker, MoveIndex, Point};
@@ -11,7 +11,7 @@ fn main() -> Result<(), color_eyre::Report> {
     let _ = dotenv::dotenv();
     color_eyre::install()?;
     renju::util::build_logger()?;
-    let matches = App::new("renju-open")
+    let matches = Command::new("renju-open")
         .arg(
             Arg::new("file")
                 .index(1)
@@ -22,17 +22,17 @@ fn main() -> Result<(), color_eyre::Report> {
         .arg(Arg::new("no-interactive").short('I'))
         .get_matches();
 
-    let path = Path::new(matches.value_of("file").unwrap());
+    let path = matches.get_one::<std::path::PathBuf>("file").unwrap();
     tracing::info!("File: {:?}", path);
     let graph = open_file_path(path).wrap_err_with(|| format!("while parsing file {:?}", path))?;
 
     //let mut file = OpenOptions::new().write(true).create(true).open(format!("{}.dot",path.file_stem().unwrap().to_str().unwrap())).expect("Couldn't create .dot file");
     //write!(file, "{:?}", graph).chain_err(|| "while writing to file");
-    if matches.is_present("no-interactive") {
+    if matches.contains_id("no-interactive") {
         return Ok(());
     }
     eprintln!("{:?}", graph);
-    let mut rl = rustyline::Editor::<()>::new()?;
+    let mut rl = rustyline::Editor::<(), _>::new()?;
     loop {
         let read = rl.readline(">> ");
         //tracing::info!("{:?}", read);
