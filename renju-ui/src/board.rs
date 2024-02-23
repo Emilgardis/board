@@ -555,7 +555,7 @@ impl UIBoard {
         self.update_variants();
         let stone = self.current_move().color;
         if !stone.is_empty() {
-            self.conditions = self.board.renju_conditions(stone.opposite());
+            self.conditions = self.board.renju_conditions(stone.opposite(), None);
             tracing::debug!(?self.conditions.forbidden, "updated conditions");
         } else {
             self.conditions = RenjuConditions::default();

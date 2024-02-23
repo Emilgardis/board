@@ -138,17 +138,46 @@ pub enum RenjuCondition {
     },
 }
 
+impl RenjuCondition {
+    pub fn stones(&self) -> &[Point] {
+        match self {
+            RenjuCondition::UnbrokenThree { stones, .. } => stones.as_slice(),
+            RenjuCondition::BrokenThree { stones, .. } => stones.as_slice(),
+            RenjuCondition::StraightFour { stones, .. } => stones.as_slice(),
+            RenjuCondition::ClosedFour { stones, .. } => stones.as_slice(),
+            RenjuCondition::BrokenFour { stones, .. } => stones.as_slice(),
+            RenjuCondition::Five { stones, .. } => stones.as_slice(),
+        }
+    }
+
+    pub fn place(&self) -> &Point {
+        match self {
+            RenjuCondition::UnbrokenThree { place, .. } => &place[0],
+            RenjuCondition::BrokenThree { place, .. } => &place[0],
+            RenjuCondition::StraightFour { place, .. } => &place[0],
+            RenjuCondition::ClosedFour { place, .. } => &place[0],
+            RenjuCondition::BrokenFour { place, .. } => &place[0],
+            RenjuCondition::Five { place, .. } => &place[0],
+        }
+    }
+}
+
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Default)]
 pub struct RenjuConditions {
     pub conditions: BTreeSet<RenjuCondition>,
     pub forbidden: BTreeSet<Point>,
+    pub threes: BTreeSet<(RenjuCondition, Point)>,
 }
 
 impl BoardArr {
     /// A condition is a place where a stone could be placed to create a certain condition.
-    #[tracing::instrument(skip(self))]
-    pub fn renju_conditions(&self, stone: Stone) -> RenjuConditions {
+    #[tracing::instrument(skip(self, stone, only_including))]
+    pub fn renju_conditions(
+        &self,
+        stone: Stone,
+        only_including: Option<&[Point]>,
+    ) -> RenjuConditions {
         static NULL_POINT: Point = Point {
             x: 0,
             y: 0,
@@ -194,6 +223,11 @@ impl BoardArr {
         tracing::debug!("checking fives");
         for (dir, stone_line) in &lines {
             for line in stone_line.windows(7) {
+                // if let Some(only) = only_including {
+                //     if !line.iter().any(|(_, p)| only.contains(p)) {
+                //         continue;
+                //     }
+                // }
                 match line {
                     // %XXXX_%
                     [(left, _), (Same, s0), (Same, s1), (Same, s2), (Same, s3), (Empty, s4), (right, _)] =>
@@ -228,13 +262,16 @@ impl BoardArr {
             }
         }
 
-        let mut threes = BTreeMap::new();
-
         // First check for overlines.
         tracing::debug!("checking overlines");
         if stone.is_black() {
             for (_, stone_line) in &lines {
                 for line in stone_line.windows(6) {
+                    // if let Some(only) = only_including {
+                    //     if !line.iter().any(|(_, p)| only.contains(p)) {
+                    //         continue;
+                    //     }
+                    // }
                     match line {
                         [(Empty, f), (Same, _), (Same, _), (Same, _), (Same, _), (Same, _)] => {
                             forbidden.insert(**f);
@@ -260,204 +297,17 @@ impl BoardArr {
             }
         }
 
-        // check for open threes, threes which can become straight fours. To do this, we need to check a huge range, 8 stones to be exact.
-        tracing::debug!("checking threes");
-        for (dir, stone_line) in &lines {
-            for line in stone_line.windows(9) {
-                match line {
-                    // %.__XX.%
-                    [(left, _), (Empty, _s1), (Empty, s2), (Empty, s3), (Same, s4), (Same, s5), (Empty, _s6), (right, _), (eh_case, _)] =>
-                    {
-                        match (left, right) {
-                            (_, Same) => {
-                                continue;
-                            }
-                            // X..xXX.%
-                            (Same, Border | NotSame | Empty) => {
-                                // there is a very special case here, if x.._xx..x, then it's not a three, since that three does not given a open four
-                                if stone.is_black() && matches!(eh_case, Same) {
-                                    continue;
-                                }
-                            }
-                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
-                                if !forbidden.contains(s2) {
-                                    let cond = RenjuCondition::BrokenThree {
-                                        direction: *dir,
-                                        stones: [**s2, **s3, **s4, **s5],
-                                        place: [**s2],
-                                    };
-                                    threes.entry(s2).or_insert_with(BTreeSet::new).insert(cond);
-                                }
-                            }
-                        }
-                        if !forbidden.contains(s3) {
-                            let cond = RenjuCondition::UnbrokenThree {
-                                direction: *dir,
-                                stones: [**s3, **s4, **s5],
-                                place: [**s3],
-                            };
-                            threes.entry(s3).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-                    // %.XX__.%
-                    [(eh_case, _), (left, _), (Empty, _s1), (Same, s2), (Same, s3), (Empty, s4), (Empty, s5), (Empty, _s6), (right, _)] =>
-                    {
-                        match (left, right) {
-                            (Same, _) => {
-                                continue;
-                            }
-                            // X..xXX.%
-                            (Border | NotSame | Empty, Same) => {
-                                // there is a very special case here, if x..xx_..x, then it's not a three, since that three does not given a open four
-                                if stone.is_black() && matches!(eh_case, Same) {
-                                    continue;
-                                }
-                            }
-                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
-                                if !forbidden.contains(s5) {
-                                    let cond = RenjuCondition::BrokenThree {
-                                        direction: *dir,
-                                        stones: [**s2, **s3, **s4, **s5],
-                                        place: [**s5],
-                                    };
-                                    threes.entry(s5).or_insert_with(BTreeSet::new).insert(cond);
-                                }
-                            }
-                        }
-                        if !forbidden.contains(s4) {
-                            let cond = RenjuCondition::UnbrokenThree {
-                                direction: *dir,
-                                stones: [**s2, **s3, **s4],
-                                place: [**s4],
-                            };
-                            threes.entry(s4).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-
-                    // %._X_X.%
-                    [(left, _s0), (Empty, _s1), (Empty, s2), (Same, s3), (Empty, s4), (Same, s5), (Empty, _s6), (right, _s7), ..] =>
-                    {
-                        match (left, right) {
-                            (_, Same) => {
-                                continue;
-                            }
-                            (Same, Border | NotSame | Empty) => {}
-                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
-                                if !forbidden.contains(s2) {
-                                    let cond = RenjuCondition::BrokenThree {
-                                        direction: *dir,
-                                        stones: [**s2, **s3, **s4, **s5],
-                                        place: [**s2],
-                                    };
-                                    threes.entry(s2).or_insert_with(BTreeSet::new).insert(cond);
-                                }
-                            }
-                        }
-                        if !forbidden.contains(s4) {
-                            let cond = RenjuCondition::UnbrokenThree {
-                                direction: *dir,
-                                stones: [**s3, **s4, **s5],
-                                place: [**s4],
-                            };
-                            threes.entry(s4).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-
-                    // %.X_X_.%
-                    [(left, _s0), (Empty, _s1), (Same, s2), (Empty, s3), (Same, s4), (Empty, s5), (Empty, _s6), (right, _s7), ..] =>
-                    {
-                        match (left, right) {
-                            (Same, _) => {
-                                continue;
-                            }
-                            (Border | NotSame | Empty, Same) => {}
-                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
-                                if !forbidden.contains(s5) {
-                                    let cond = RenjuCondition::BrokenThree {
-                                        direction: *dir,
-                                        stones: [**s2, **s3, **s4, **s5],
-                                        place: [**s5],
-                                    };
-                                    threes.entry(s5).or_insert_with(BTreeSet::new).insert(cond);
-                                }
-                            }
-                        }
-                        if !forbidden.contains(s3) {
-                            let cond = RenjuCondition::UnbrokenThree {
-                                direction: *dir,
-                                stones: [**s2, **s3, **s4],
-                                place: [**s3],
-                            };
-                            threes.entry(s3).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-                    // %.X__X.%
-                    [(Border | NotSame | Empty, _s1), (Empty, _s2), (Same, s3), (Empty, s4), (Empty, s5), (Same, s6), (Empty, _s7), (Border | NotSame | Empty, _s8), ..] =>
-                    {
-                        if !forbidden.contains(s4) {
-                            let cond = RenjuCondition::BrokenThree {
-                                direction: *dir,
-                                stones: [**s3, **s4, **s5, **s6],
-                                place: [**s4],
-                            };
-                            threes.entry(s4).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                        if !forbidden.contains(s5) {
-                            let cond = RenjuCondition::BrokenThree {
-                                direction: *dir,
-                                stones: [**s3, **s4, **s5, **s6],
-                                place: [**s5],
-                            };
-                            threes.entry(s5).or_insert_with(BTreeSet::new).insert(cond);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        for (k, v) in threes {
-            if stone.is_black() && v.len() > 1 {
-                // 9.3 A black double-three is allowed if at least one of the following conditions  a) or b) is/are fulfilled:
-                // a) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection,
-                //    without at the same time an overline or double-four is attained in this intersection.
-                //    To find out which double-three's, which are allowed, you must make the move, which causes the double-three,
-                //    in your mind, and then continue trying to make straight fours, which are allowed, in your mind.
-                // b) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection,
-                //    without at the same time at least two three's meet in this intersection and make a forbidden double-three.
-                //    To find out if this last double-three is forbidden or not, you must at first examine if
-                //    the double-three is allowed according to a) above, and then in your mind continue trying to make straight fours of the three's in your mind.
-                //    If, when making a straight four in your mind, another double-three would be attained also these double-three's must be examined
-                //    in the same way as it is described in this point 9.3, etc.
-                let mut new_board = self.clone();
-                new_board.set_point(**k, stone);
-
-                // First check for overlines and double-four, case a).
-
-                // TODO
-
-                // Then check for double-three, case b).
-
-                // TODO
-
-                tracing::debug!(point = ?k, ?v, "forbidden");
-                forbidden.insert(**k);
-            } else {
-                conditions.extend(v);
-            }
-        }
-
-        if stone.is_white() {
-            assert!(forbidden.is_empty());
-        }
-
         let mut fours = BTreeMap::new();
 
         tracing::debug!("checking fours");
         for (dir, stone_line) in &lines {
             for line in stone_line.windows(7) {
+                if let Some(only) = only_including {
+                    if !line.iter().any(|(_, p)| only.contains(p)) {
+                        continue;
+                    }
+                }
                 match line {
-                    // TODO: Needs to check that the left is not same
                     // %._XXX%
                     // %_.XXX%
                     [(left, _), (Empty, s0), (Empty, s1), (Same, s2), (Same, s3), (Same, s4), (right, _)]
@@ -589,6 +439,313 @@ impl BoardArr {
             }
         }
 
+        let mut threes = BTreeMap::new();
+
+        // check for open threes, threes which can become straight fours. To do this, we need to check a huge range, 8 stones to be exact.
+        tracing::debug!("checking threes");
+        for (dir, stone_line) in &lines {
+            for line in stone_line.windows(9) {
+                if let Some(only) = only_including {
+                    if !line.iter().any(|(_, p)| only.contains(p)) {
+                        continue;
+                    }
+                }
+                match line {
+                    // %.__XX.%
+                    [(left, _), (Empty, _s1), (Empty, s2), (Empty, s3), (Same, s4), (Same, s5), (Empty, _s6), (right, _), (eh_case, _)] =>
+                    {
+                        match (left, right) {
+                            (_, Same) => {
+                                continue;
+                            }
+                            // X..xXX.%
+                            (Same, Border | NotSame | Empty) => {
+                                // there is a very special case here, if x.._xx..x, then it's not a three, since that three does not given a open four
+                                if stone.is_black() && matches!(eh_case, Same) {
+                                    continue;
+                                }
+                            }
+                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
+                                if !forbidden.contains(s2)
+                                    && !fives.contains(s2)
+                                    && !fives.contains(s3)
+                                {
+                                    let cond = RenjuCondition::BrokenThree {
+                                        direction: *dir,
+                                        stones: [**s2, **s3, **s4, **s5],
+                                        place: [**s2],
+                                    };
+                                    threes
+                                        .entry(s2)
+                                        .or_insert_with(BTreeSet::new)
+                                        .insert((cond, *s3));
+                                }
+                            }
+                        }
+                        if !forbidden.contains(s3) && !fives.contains(s3) && !fives.contains(s2) {
+                            let cond = RenjuCondition::UnbrokenThree {
+                                direction: *dir,
+                                stones: [**s3, **s4, **s5],
+                                place: [**s3],
+                            };
+                            threes
+                                .entry(s3)
+                                .or_insert_with(BTreeSet::new)
+                                .insert((cond, *s2));
+                        }
+                    }
+                    // %.XX__.%
+                    [(eh_case, _), (left, _), (Empty, _s1), (Same, s2), (Same, s3), (Empty, s4), (Empty, s5), (Empty, _s6), (right, _)] =>
+                    {
+                        match (left, right) {
+                            (Same, _) => {
+                                continue;
+                            }
+                            // X..xXX.%
+                            (Border | NotSame | Empty, Same) => {
+                                // there is a very special case here, if x..xx_..x, then it's not a three, since that three does not given a open four
+                                if stone.is_black() && matches!(eh_case, Same) {
+                                    continue;
+                                }
+                            }
+                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
+                                if !forbidden.contains(s5)
+                                    && !fives.contains(s5)
+                                    && !fives.contains(s4)
+                                {
+                                    let cond = RenjuCondition::BrokenThree {
+                                        direction: *dir,
+                                        stones: [**s2, **s3, **s4, **s5],
+                                        place: [**s5],
+                                    };
+                                    threes
+                                        .entry(s5)
+                                        .or_insert_with(BTreeSet::new)
+                                        .insert((cond, *s4));
+                                }
+                            }
+                        }
+                        if !forbidden.contains(s4) && !fives.contains(s4) && !fives.contains(s5) {
+                            let cond = RenjuCondition::UnbrokenThree {
+                                direction: *dir,
+                                stones: [**s2, **s3, **s4],
+                                place: [**s4],
+                            };
+                            threes
+                                .entry(s4)
+                                .or_insert_with(BTreeSet::new)
+                                .insert((cond, *s5));
+                        }
+                    }
+
+                    // %._X_X.%
+                    [(left, _s0), (Empty, _s1), (Empty, s2), (Same, s3), (Empty, s4), (Same, s5), (Empty, _s6), (right, _s7), ..] =>
+                    {
+                        match (left, right) {
+                            (_, Same) => {
+                                continue;
+                            }
+                            (Same, Border | NotSame | Empty) => {}
+                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
+                                if !forbidden.contains(s2)
+                                    && !fives.contains(s2)
+                                    && !fives.contains(s4)
+                                {
+                                    let cond = RenjuCondition::BrokenThree {
+                                        direction: *dir,
+                                        stones: [**s2, **s3, **s4, **s5],
+                                        place: [**s2],
+                                    };
+                                    threes
+                                        .entry(s2)
+                                        .or_insert_with(BTreeSet::new)
+                                        .insert((cond, *s4));
+                                }
+                            }
+                        }
+                        if !forbidden.contains(s4) && !fives.contains(s4) && !fives.contains(s2) {
+                            let cond = RenjuCondition::UnbrokenThree {
+                                direction: *dir,
+                                stones: [**s3, **s4, **s5],
+                                place: [**s4],
+                            };
+                            threes
+                                .entry(s4)
+                                .or_insert_with(BTreeSet::new)
+                                .insert((cond, *s2));
+                        }
+                    }
+
+                    // %.X_X_.%
+                    [(left, _s0), (Empty, _s1), (Same, s2), (Empty, s3), (Same, s4), (Empty, s5), (Empty, _s6), (right, _s7), ..] =>
+                    {
+                        match (left, right) {
+                            (Same, _) => {
+                                continue;
+                            }
+                            (Border | NotSame | Empty, Same) => {}
+                            (Border | NotSame | Empty, Border | NotSame | Empty) => {
+                                if !forbidden.contains(s5)
+                                    && !fives.contains(s5)
+                                    && !fives.contains(s4)
+                                {
+                                    let cond = RenjuCondition::BrokenThree {
+                                        direction: *dir,
+                                        stones: [**s2, **s3, **s4, **s5],
+                                        place: [**s5],
+                                    };
+                                    threes
+                                        .entry(s5)
+                                        .or_insert_with(BTreeSet::new)
+                                        .insert((cond, *s4));
+                                }
+                            }
+                        }
+                        if !forbidden.contains(s3) && !fives.contains(s3) && !fives.contains(s5) {
+                            let cond = RenjuCondition::UnbrokenThree {
+                                direction: *dir,
+                                stones: [**s2, **s3, **s4],
+                                place: [**s3],
+                            };
+                            threes
+                                .entry(s3)
+                                .or_insert_with(BTreeSet::new)
+                                .insert((cond, *s5));
+                        }
+                    }
+                    // %.X__X.%
+                    [(Border | NotSame | Empty, _s1), (Empty, _s2), (Same, s3), (Empty, s4), (Empty, s5), (Same, s6), (Empty, _s7), (Border | NotSame | Empty, _s8), ..] =>
+                    {
+                        if !forbidden.contains(s4) && !fives.contains(s4) && !fives.contains(s5) {
+                            let cond = RenjuCondition::BrokenThree {
+                                direction: *dir,
+                                stones: [**s3, **s4, **s5, **s6],
+                                place: [**s4],
+                            };
+                            threes
+                                .entry(s4)
+                                .or_insert_with(BTreeSet::new)
+                                .insert((cond, *s5));
+                        }
+                        if !forbidden.contains(s5) && !fives.contains(s5) && !fives.contains(s4) {
+                            let cond = RenjuCondition::BrokenThree {
+                                direction: *dir,
+                                stones: [**s3, **s4, **s5, **s6],
+                                place: [**s5],
+                            };
+                            threes
+                                .entry(s5)
+                                .or_insert_with(BTreeSet::new)
+                                .insert((cond, *s4));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let mut found_forbidden_threes = BTreeSet::new();
+        for (k, v) in &threes {
+            let span = tracing::debug_span!("3FCheck", ?k);
+            let _enter = span.enter();
+            // we need to check the unique conditions, based on the row, not the point which could be a four.
+            let three_row: BTreeSet<&RenjuCondition> = v.iter().map(|(c, _)| c).collect();
+            if stone.is_black() && three_row.len() > 1 {
+                tracing::debug!(?k, ?v, "is k forbidden?");
+
+                // 9.3 A black double-three is allowed if at least one of the following conditions  a) or b) is/are fulfilled:
+                // a) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection,
+                //    without at the same time an overline or double-four is attained in this intersection.
+                //    To find out which double-three's, which are allowed, you must make the move, which causes the double-three,
+                //    in your mind, and then continue trying to make straight fours, which are allowed, in your mind.
+                // b) Not more than one of the three's can be made to a straight four when adding another stone in just any intersection,
+                //    without at the same time at least two three's meet in this intersection and make a forbidden double-three.
+                //    To find out if this last double-three is forbidden or not, you must at first examine if
+                //    the double-three is allowed according to a) above, and then in your mind continue trying to make straight fours of the three's in your mind.
+                //    If, when making a straight four in your mind, another double-three would be attained also these double-three's must be examined
+                //    in the same way as it is described in this point 9.3, etc.
+
+                // First check for overlines and double-four, case a).
+                let mut allowed_fours = 0;
+                for (c, four_point) in v.iter() {
+                    if !forbidden.contains(four_point) {
+                        tracing::debug!(
+                            ?c,
+                            ?four_point,
+                            "found a four_point that does not cause a overline or double-four"
+                        );
+                        allowed_fours += 1;
+                    }
+                }
+                // a) is not fulfilled, we need to check a)
+                // that is, if there's more than one way to do a straight four
+                if allowed_fours > 1 {
+                    tracing::debug!(
+                        ?k,
+                        ?allowed_fours,
+                        "found {allowed_fours:?} fours that are allowed, need to check if there's more than one three that is allowed threes"
+                    );
+                    let mut allowed_threes = v.len();
+                    // Check for double-three, case b).
+                    let mut new_board = self.clone();
+                    new_board.set_point(***k, stone);
+                    tracing::debug!("new board\n: {new_board}");
+                    tracing::debug!(stones_added = ?[&k,], "adding stones to board to check for double-three.");
+                    for (_c, four_point) in v.iter() {
+                        let span = tracing::debug_span!("four_point check", ?four_point,);
+                        let _enter = span.enter();
+                        // FIXME: Instead of cloning, we could mutate the board, marking the added stones as special somehow, this would minimize memory allocation, but, wouldn't allow parallelization.
+
+                        // TODO
+                        tracing::debug!("checking if the four_point is forbidden double-three");
+                        let new_conditions =
+                            new_board.renju_conditions(stone, Some(&[***k, **four_point]));
+
+                        tracing::debug!("checked if the four_point is forbidden double-three");
+                        // Now, check condition if more than one allowed straight four can be  made
+                        if new_conditions
+                            .conditions
+                            .iter()
+                            .filter(|c| {
+                                matches!(c, RenjuCondition::StraightFour { .. })
+                                    && c.stones().contains(**k)
+                            })
+                            .filter(|c| !new_conditions.forbidden.contains(c.place()))
+                            .count()
+                            > 1
+                        {
+                        } else {
+                            tracing::debug!(?new_conditions, "got new conditions");
+                            if new_conditions.forbidden.contains(four_point) {
+                                tracing::debug!(?four_point, "found a forbidden double-three");
+                                allowed_threes -= 1;
+                            } else {
+                                tracing::debug!(?four_point, "found a allowed double-three");
+                            }
+                        }
+                    }
+                    if allowed_threes > 1 {
+                        tracing::debug!(
+                            ?k,
+                            ?allowed_threes,
+                            "b) is not fulfilled, the double-three on {k:?} is forbidden."
+                        );
+                        found_forbidden_threes.insert(**k);
+                    } else {
+                        tracing::debug!(?k, "b) is fulfilled, the double-three is allowed.");
+                    }
+                } else {
+                    tracing::debug!(?k, "a) is fulfilled, the double-three is allowed.");
+                }
+            } else {
+                conditions.extend(v.iter().map(|(c, _)| c.clone()));
+            }
+        }
+        forbidden.extend(found_forbidden_threes.clone());
+
+        if stone.is_white() {
+            assert!(forbidden.is_empty());
+        }
+
         if stone.is_white() {
             assert!(forbidden.is_empty());
         }
@@ -596,6 +753,10 @@ impl BoardArr {
         RenjuConditions {
             conditions,
             forbidden,
+            threes: threes
+                .into_iter()
+                .flat_map(|(_k, v)| v.into_iter().map(|(c, p)| (c, *p)))
+                .collect(),
         }
     }
 
@@ -741,7 +902,7 @@ mod tests {
         for pos in p![[H, 8], [G, 8], [G, 9], [H, 10]] {
             board.set_point(pos, Stone::Black);
         }
-        let conditions = board.renju_conditions(Stone::Black);
+        let conditions = board.renju_conditions(Stone::Black, None);
         for forbidden in &conditions.forbidden {
             board
                 .get_point_mut(*forbidden)
@@ -781,7 +942,7 @@ mod tests {
 
         board.set_point(p![B, 13], Stone::White);
 
-        let conditions = board.renju_conditions(Stone::Black);
+        let conditions = board.renju_conditions(Stone::Black, None);
         for forbidden in &conditions.forbidden {
             board
                 .get_point_mut(*forbidden)
@@ -825,7 +986,7 @@ mod tests {
 
         board.set_point(p![E, 10], Stone::White);
 
-        let conditions = board.renju_conditions(Stone::Black);
+        let conditions = board.renju_conditions(Stone::Black, None);
         for forbidden in &conditions.forbidden {
             board
                 .get_point_mut(*forbidden)
@@ -865,7 +1026,7 @@ mod tests {
             board.set_point(pos, Stone::White);
         }
 
-        let conditions = board.renju_conditions(Stone::Black);
+        let conditions = board.renju_conditions(Stone::Black, None);
         for forbidden in &conditions.forbidden {
             board
                 .get_point_mut(*forbidden)
@@ -899,7 +1060,7 @@ mod tests {
         for pos in p![[J, 7], [G, 7]] {
             board.set_point(pos, Stone::White);
         }
-        let conditions = board.renju_conditions(Stone::Black);
+        let conditions = board.renju_conditions(Stone::Black, None);
         for forbidden in &conditions.forbidden {
             board
                 .get_point_mut(*forbidden)
@@ -934,13 +1095,13 @@ mod tests {
             [H, 12],
             [N, 11],
             [I, 11],
-            [E, 12]
+            [E, 12],
         ] {
             board.set_point(pos, stone);
             stone = stone.opposite();
         }
 
-        let conditions = board.renju_conditions(Stone::Black);
+        let conditions = board.renju_conditions(Stone::Black, None);
         for forbidden in &conditions.forbidden {
             board
                 .get_point_mut(*forbidden)
@@ -958,6 +1119,45 @@ mod tests {
             conditions.forbidden,
             p![[E, 13], [F, 14]].iter().copied().collect(),
         )
+    }
+
+    #[test]
+    fn rif_definition_of_three() {
+        // A row with three stones to which you, without at the same time a five in a row is made, can add one more stone to attain a straight four.
+        let mut board = BoardArr::new(15);
+
+        for p in p![
+            [F, 8],
+            [F, 9],
+            [F, 10],
+            [F, 11],
+            [G, 7],
+            [H, 7],
+            [G, 13],
+            [H, 13],
+            [I, 13],
+            [J, 13],
+            [L, 12],
+            [M, 11]
+        ] {
+            board.set_point(p, Stone::Black);
+        }
+        tracing::info!("board \n{}", board);
+
+        let conditions = board.renju_conditions(Stone::Black, Some(&p![[F, 7], [K, 13]]));
+        let f7: Vec<_> = conditions
+            .threes
+            .iter()
+            .filter(|c| c.0.stones().contains(&p![F, 7]))
+            .collect();
+        tracing::info!("{f7:?}");
+        let k13: Vec<_> = conditions
+            .threes
+            .iter()
+            .filter(|c| c.0.stones().contains(&p![K, 13]))
+            .collect();
+        tracing::info!("{k13:?}");
+        tracing::info!("{conditions:?}");
     }
 
     #[test]
@@ -1091,8 +1291,15 @@ mod tests {
             board.set_point(pos, Stone::Black);
         }
 
-        let illegal = p![[F, 8]].iter().copied().collect();
-        assert_eq!(board.renju_conditions(Stone::Black).forbidden, illegal);
+        let conditions = board.renju_conditions(Stone::Black, None);
+        for forbidden in &conditions.forbidden {
+            board
+                .get_point_mut(*forbidden)
+                .unwrap()
+                .set_oneline_comment("*".to_owned());
+        }
+        tracing::debug!("board \n{}", board);
+        assert_eq!(conditions.forbidden, p![[F, 8]].iter().copied().collect());
     }
 
     #[test]
